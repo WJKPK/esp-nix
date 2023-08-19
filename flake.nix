@@ -9,20 +9,36 @@
 
   outputs = { self, nixpkgs, flake-utils, nixpkgs-esp-dev }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
-      pkgs = import nixpkgs { inherit system; overlays = [(import "${nixpkgs-esp-dev}/overlay.nix")];};
-      esp-idf = with pkgs; esp-idf-esp32c3.override {
-            rev = "79b1379662b547f6eb0e5fed33df70587b03d99c";
-            sha256 = "sha256-JNJ4wfkS6lEMNeaMf06ORzNPgHQ59s96zMlm9/lSS9A=";
-          };
+    pkgs = import nixpkgs { inherit system; overlays = [(import "${nixpkgs-esp-dev}/overlay.nix")];};
+    esp-idf = with pkgs; esp-idf-esp32c3.override {
+      rev = "79b1379662b547f6eb0e5fed33df70587b03d99c";
+      sha256 = "sha256-JNJ4wfkS6lEMNeaMf06ORzNPgHQ59s96zMlm9/lSS9A=";
+    };
     in {
       devShell = pkgs.mkShell {
         buildInputs = [
           esp-idf
+          pkgs.cpputest
+          pkgs.cmake
         ];
       };
+
+#      packages.test = pkgs.stdenv.mkDerivation {
+#        name = "esp32c3-tests";
+#        src = ./tests;
+#
+#        nativeBuildInputs = [
+#          pkgs.cmake
+#        ];
+#
+#        buildInputs = [
+#          pkgs.cpputest
+#        ];
+#      };
+
       defaultPackage = pkgs.stdenv.mkDerivation {
         name = "esp32c3-project";
-        src = ./code;
+        src = ./src;
 
         buildInputs = [
           esp-idf

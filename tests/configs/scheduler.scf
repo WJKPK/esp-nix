@@ -1,0 +1,2 @@
+SCHEDULE_QUEUE(Test, unsigned, 10, 10)
+SCHEDULE_QUEUE(TestStruct, CustomStruct, 1, 1)
