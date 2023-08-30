@@ -18,6 +18,7 @@
       devShell = pkgs.mkShell {
         buildInputs = [
           esp-idf
+          pkgs.uncrustify
           pkgs.cpputest
           pkgs.cmake
         ];
