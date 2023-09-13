@@ -10,10 +10,13 @@ set( FREERTOS_KERNEL_PATH "./freertos" )
 set( UNDER_TEST_CODE_PATH "../src" )
 set( TESTS_CODE_PATH "." )
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(${FREERTOS_KERNEL_PATH})
 
 add_executable(scheduler_test
+               init.cpp
+               common.cpp
                schedulerTests.cpp
                ${UNDER_TEST_CODE_PATH}/main/utilities/scheduler.c
 	            )
