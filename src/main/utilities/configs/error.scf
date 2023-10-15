@@ -1,0 +1,6 @@
+DEFINE_ERROR(error_any, "Action successed")
+DEFINE_ERROR(memory_constraint_exceeded, "Requested memory with invalid parameters")
+DEFINE_ERROR(unknown_resource, "Requested unknown resource")
+DEFINE_ERROR(collection_full, "Collection is full")
+DEFINE_ERROR(action_already_requested, "Action already requested")
+DEFINE_ERROR(library_error, "Library function call failed")

@@ -21,13 +21,8 @@
 #define H_BLEHR_SENSOR_
 
 #include "nimble/ble.h"
-#include "modlog/modlog.h"
+#include "utilities/error.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* Heart-rate configuration */
 #define GATT_HRS_UUID                           0x180D
 #define GATT_HRS_MEASUREMENT_UUID               0x2A37
 #define GATT_HRS_BODY_SENSOR_LOC_UUID           0x2A38
@@ -35,17 +30,28 @@ extern "C" {
 #define GATT_MANUFACTURER_NAME_UUID             0x2A29
 #define GATT_MODEL_NUMBER_UUID                  0x2A24
 
-extern uint16_t hrs_hrm_handle;
+typedef uint16_t simplified_uuid_t;
 
-struct ble_hs_cfg;
-struct ble_gatt_register_ctxt;
+typedef void(*ble_write_callback_t)(simplified_uuid_t uuid, uint8_t* buff, size_t size);
+typedef void(*ble_read_callback_t)(simplified_uuid_t uuid, uint8_t** buff, size_t* size);
 
-void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
-int gatt_svr_init(void);
+typedef struct {
+    simplified_uuid_t const* uuid_filter;
+    unsigned filter_count;
+    ble_write_callback_t observer;
+} write_observer_descriptor_t;
 
-#ifdef __cplusplus
-}
-#endif
+typedef struct {
+    simplified_uuid_t const* uuid_filter;
+    unsigned filter_count;
+    ble_read_callback_t observer;
+} read_observer_descriptor_t;
+
+error_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor);
+error_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor);
+error_t ble_notify_custom(uint16_t handle, uint8_t* buff, size_t len);
+
+error_t ble_init_nimble(void);
 
 #endif
 
