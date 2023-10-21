@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023 WJKPK
+ *  
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "CppUTest/TestHarness.h"
 #include "CppUTest/CommandLineTestRunner.h"
 #include <atomic>
@@ -34,28 +50,28 @@ TEST_GROUP(EventSchedulerTests) {
 };
 
 TEST(EventSchedulerTests, SendOneEventCustomStructCallOneCallback) {
-    SchedulerCallback send_callback = [](void* arg) {
+    scheduler_callback_t send_callback = [](void* arg) {
           CustomStruct* casted_arg(reinterpret_cast<CustomStruct*>(arg));
           CHECK_EQUAL(PayloadTwo, casted_arg->payload_type);
           CHECK_EQUAL(-1, casted_arg->payload_two);
           set_test_end();
       };
 
-    CHECK_EQUAL(true, SCHEDULER_Subscribe(SchedulerQueueTestStruct, send_callback));
+    CHECK_EQUAL(true, scheduler_subscribe(SchedulerQueueTestStruct, send_callback));
     CustomStruct custom_struct({
         .payload_type = PayloadTwo,
         .payload_two  = -1
     });
-    CHECK_EQUAL(true, SCHEDULER_Enqueue(SchedulerQueueTestStruct, &custom_struct));
+    CHECK_EQUAL(true, scheduler_enqueue(SchedulerQueueTestStruct, &custom_struct));
     while (!get_test_status());
-    CHECK_EQUAL(true, SCHEDULER_Unsubscribe(SchedulerQueueTestStruct, send_callback));
+    CHECK_EQUAL(true, scheduler_unsubscribe(SchedulerQueueTestStruct, send_callback));
 }
 
 static unsigned repetitions_counter = 0;
 constexpr unsigned no_of_repetitions(10);
 
 TEST(EventSchedulerTests, SendMultipleEventUnsignedCallOneCallback) {
-    SchedulerCallback send_callback = [](void* arg) {
+    scheduler_callback_t send_callback = [](void* arg) {
           unsigned* casted_arg(reinterpret_cast<unsigned*>(arg));
           CHECK_EQUAL(0xDEADBEEF, *casted_arg);
           repetitions_counter++;
@@ -64,12 +80,12 @@ TEST(EventSchedulerTests, SendMultipleEventUnsignedCallOneCallback) {
           }
       };
 
-    CHECK_EQUAL(true, SCHEDULER_Subscribe(SchedulerQueueTest, send_callback));
+    CHECK_EQUAL(true, scheduler_subscribe(SchedulerQueueTest, send_callback));
     unsigned no_of_messages(no_of_repetitions);
     while (no_of_messages-- > 0)
-        CHECK_EQUAL(true, SCHEDULER_Enqueue(SchedulerQueueTest, std::make_unique<unsigned>(0xDEADBEEF).get()));
+        CHECK_EQUAL(true, scheduler_enqueue(SchedulerQueueTest, std::make_unique<unsigned>(0xDEADBEEF).get()));
 
     while (!get_test_status());
-    CHECK_EQUAL(true, SCHEDULER_Unsubscribe(SchedulerQueueTest, send_callback));
+    CHECK_EQUAL(true, scheduler_unsubscribe(SchedulerQueueTest, send_callback));
 }
 

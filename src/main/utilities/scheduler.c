@@ -1,24 +1,40 @@
+/*
+ * Copyright 2023 WJKPK
+ *  
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "utilities/scheduler.h"
+
 #include <stdatomic.h>
 #include <stdio.h>
+
 #include "FreeRTOS.h"
 #include "queue.h"
 
-#define __same_type(a, b)  __builtin_types_compatible_p(typeof(a), typeof(b))
-#define __must_be_array(a) BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0]))
-#define ARRAY_SIZE(arr)    (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+#include "utilities/addons.h"
 
 static struct {
     atomic_bool        is_initialized;
     TaskHandle_t       scheduler_task;
     QueueHandle_t      queues_list[SchedulerQueueLast];
-    SchedulerCallback* callbacks[SchedulerQueueLast];
+    scheduler_callback_t* callbacks[SchedulerQueueLast];
     unsigned           max_no_of_callbacks[SchedulerQueueLast];
 } ctx;
 
 #define SCHEDULE_QUEUE(name, item_type, size, callbacks_count) {                \
      static StaticQueue_t _static_##name##_queue;                               \
-     static SchedulerCallback _scheduler_callback_list_##name[callbacks_count]; \
+     static scheduler_callback_t _scheduler_callback_list_##name[callbacks_count]; \
      static uint8_t _queue_##name##_storage_area[size * sizeof(item_type)];     \
      ctx.queues_list[SchedulerQueue##name] = xQueueCreateStatic(size,           \
          sizeof(item_type),                                                     \
@@ -28,7 +44,7 @@ static struct {
      ctx.max_no_of_callbacks[SchedulerQueue##name] = callbacks_count;           \
 }
 
-void SCHEDULER_Init (void) {
+void scheduler_init (void) {
     ctx.scheduler_task = xTaskGetCurrentTaskHandle();
 #include "scheduler.scf"
     atomic_store_explicit(&ctx.is_initialized, true, memory_order_relaxed);
@@ -40,7 +56,7 @@ static inline bool IsInitialized (void) {
     return atomic_load_explicit(&ctx.is_initialized, memory_order_relaxed);
 }
 
-bool SCHEDULER_Enqueue (SchedulerQueueId queue_id, void* payload) {
+bool scheduler_enqueue (scheduler_queue_id_t queue_id, void* payload) {
     if (!IsInitialized()) {
         return false;
     }
@@ -58,7 +74,7 @@ bool SCHEDULER_Enqueue (SchedulerQueueId queue_id, void* payload) {
      }                                                                                         \
 }
 
-void SCHEDULER_Run (void) {
+void scheduler_run (void) {
     if (0 == ulTaskNotifyTake(pdFALSE, portMAX_DELAY)) {
         return;
     }
@@ -68,7 +84,7 @@ void SCHEDULER_Run (void) {
 
 #undef SCHEDULE_QUEUE
 
-bool SCHEDULER_Subscribe (SchedulerQueueId queue_id, SchedulerCallback callback) {
+bool scheduler_subscribe (scheduler_queue_id_t queue_id, scheduler_callback_t callback) {
     if (!IsInitialized()) {
         return false;
     }
@@ -86,7 +102,7 @@ bool SCHEDULER_Subscribe (SchedulerQueueId queue_id, SchedulerCallback callback)
     return false;
 }
 
-bool SCHEDULER_Unsubscribe (SchedulerQueueId queue_id, SchedulerCallback callback) {
+bool scheduler_unsubscribe (scheduler_queue_id_t queue_id, scheduler_callback_t callback) {
     if (!IsInitialized()) {
         return false;
     }
@@ -103,3 +119,4 @@ bool SCHEDULER_Unsubscribe (SchedulerQueueId queue_id, SchedulerCallback callbac
     }
     return false;
 }
+

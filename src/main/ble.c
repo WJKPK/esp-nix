@@ -1,20 +1,17 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+/* 
+ * Copyright 2023 WJKPK
+ *  
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #include <assert.h>
@@ -28,9 +25,9 @@
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 
+#include "utilities/logger.h"
+
 static const char* device_name = "ESP32";
-static const char* manuf_name = "WJKPK";
-static const char* model_num  = "ESP32C3Generic";
 uint16_t hrs_hrm_handle;
 static uint16_t conn_handle;
 static uint8_t ble_addr_type;
@@ -45,37 +42,31 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
         /* Service: Heart-rate */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(GATT_HRS_UUID),
+        .uuid = BLE_UUID16_DECLARE(BASIC_CHARACTERISTIC_SERVICE_UUID),
         .characteristics = (struct ble_gatt_chr_def[])
         { {
               /* Characteristic: Heart-rate measurement */
-              .uuid       = BLE_UUID128_DECLARE(GET_FULL_UUID(0xDEAD)),
+              .uuid       = BLE_UUID128_DECLARE(GET_FULL_UUID(BASIC_CHARACTERISTIC_UUID)),
               .access_cb  = generic_read_access,
               .val_handle = &hrs_hrm_handle,
               .flags      = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
-              /* Characteristic: Body sensor location */
-              .uuid      = BLE_UUID16_DECLARE(GATT_HRS_BODY_SENSOR_LOC_UUID),
-              .access_cb = generic_read_access,
-              .flags     = BLE_GATT_CHR_F_READ,
-          },{
               0, /* No more characteristics in this service */
           }, }
     },
-
     {
         /* Service: Device Information */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(GATT_DEVICE_INFO_UUID),
+        .uuid = BLE_UUID16_DECLARE(DEVICE_INFO_UUID),
         .characteristics = (struct ble_gatt_chr_def[])
         { {
               /* Characteristic: * Manufacturer name */
-              .uuid      = BLE_UUID16_DECLARE(GATT_MANUFACTURER_NAME_UUID),
+              .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MANUFACTURER_NAME_UUID)),
               .access_cb = generic_read_access,
               .flags     = BLE_GATT_CHR_F_READ,
           },{
               /* Characteristic: Model number string */
-              .uuid      = BLE_UUID16_DECLARE(GATT_MODEL_NUMBER_UUID),
+              .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MODEL_NUMBER_UUID)),
               .access_cb = generic_read_access,
               .flags     = BLE_GATT_CHR_F_READ,
           },{

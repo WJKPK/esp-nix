@@ -23,12 +23,11 @@
 #include "nimble/ble.h"
 #include "utilities/error.h"
 
-#define GATT_HRS_UUID                           0x180D
-#define GATT_HRS_MEASUREMENT_UUID               0x2A37
-#define GATT_HRS_BODY_SENSOR_LOC_UUID           0x2A38
-#define GATT_DEVICE_INFO_UUID                   0x180A
-#define GATT_MANUFACTURER_NAME_UUID             0x2A29
-#define GATT_MODEL_NUMBER_UUID                  0x2A24
+#define BASIC_CHARACTERISTIC_SERVICE_UUID       0x180D
+#define BASIC_CHARACTERISTIC_UUID               0x2A37
+#define DEVICE_INFO_UUID                        0x180A
+#define DEVICE_INFO_MANUFACTURER_NAME_UUID      0x2A29
+#define DEVICE_INFO_MODEL_NUMBER_UUID           0x2A24
 
 typedef uint16_t simplified_uuid_t;
 

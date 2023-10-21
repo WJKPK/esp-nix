@@ -14,18 +14,9 @@
  * limitations under the License.
  */
 
-#include "utilities/error.h"
-#include <stdio.h>
+#include "utilities/logger.h"
 
-#define DEFINE_ERROR(name, description) case name: printf("%s: %s:%u", description, file, line); break;
-void _error_print_message(error_t error, char* file, unsigned line) {
-    switch(error) {
-
-        #include "error.scf"
-
-        case error_last:
-            break;
-    }
+void logger_init(void) {
+    esp_log_level_set("*", ESP_LOG_VERBOSE);
 }
-#undef DEFINE_ERROR
 
