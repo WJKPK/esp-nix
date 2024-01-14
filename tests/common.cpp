@@ -23,9 +23,11 @@
 extern "C" {
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 }
 
 static std::unique_ptr<StackType_t[]> uxIdleTaskStack = std::make_unique<StackType_t[]>(configMINIMAL_STACK_SIZE);
+static std::unique_ptr<StackType_t[]> uxTimerTaskStack= std::make_unique<StackType_t[]>(configTIMER_TASK_STACK_DEPTH);
 
 void vApplicationMallocFailedHook (void) {
     FAIL("Not enough memory!");
@@ -38,6 +40,15 @@ void vApplicationGetIdleTaskMemory (StaticTask_t** ppxIdleTaskTCBBuffer,
     *ppxIdleTaskTCBBuffer = &xIdleTaskTCB;
     *ppxIdleTaskStackBuffer = uxIdleTaskStack.get();
     *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
+}
+
+void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
+                                     StackType_t ** ppxTimerTaskStackBuffer,
+                                     uint32_t * pulTimerTaskStackSize ) {
+    static StaticTask_t xTimerTaskTCB;
+    *ppxTimerTaskTCBBuffer = &xTimerTaskTCB;
+    *ppxTimerTaskStackBuffer = uxTimerTaskStack.get();
+    *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
 
 void vApplicationIdleHook (void) {

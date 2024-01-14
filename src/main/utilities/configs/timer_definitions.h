@@ -14,23 +14,9 @@
  * limitations under the License.
  */
 
-#ifndef _UTILITIES_ERROR_
-#define _UTILITIES_ERROR_
+#ifndef _UTILITIES_CONFIGS_TIMER_DEFINITIONS_
+#define _UTILITIES_CONFIGS_TIMER_DEFINITIONS_
 
-#include <stdbool.h>
+#define MAX_TIMERS_CALLBACK 2U
 
-#define DEFINE_ERROR(name, description) name,
-typedef enum {
-    #include "error.scf"
-    error_last
-} error_status_t;
-#undef DEFINE_ERROR
-
-void _error_print_message(error_status_t error, char* file, unsigned line);
-#define error_print_message(error) _error_print_message(error, __FILE__, __LINE__);
-
-static inline bool error_is_success(error_status_t status) {
-   return status == error_any; 
-}
-
-#endif  // _UTILITIES_ERROR_
+#endif  // _UTILITIES_CONFIGS_TIMER_DEFINITIONS_

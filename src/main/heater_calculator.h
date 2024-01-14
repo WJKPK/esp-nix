@@ -1,4 +1,6 @@
 /*
+ * Copyright 2023 WJKPK
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,11 +18,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#ifndef _MAIN_DEVICE_INFO_
-#define _MAIN_DEVICE_INFO_
 
-#include "utilities/error.h"
+#ifndef _MAIN_HEAT_CALCULATOR_
+#define _MAIN_HEAT_CALCULATOR_
 
-error_status_t device_info_init(void);
+float get_heating_power_percent(float actual_temperature, float setpoint);
 
-#endif
+#endif // _MAIN_HEAT_CALCULATOR_

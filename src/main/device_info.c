@@ -42,7 +42,7 @@ void on_device_info_read(simplified_uuid_t uuid, uint8_t** buff, size_t* size) {
     }
 }
 
-error_t device_info_init(void) {
+error_status_t device_info_init(void) {
     static const simplified_uuid_t uuid_filter[] = { DEVICE_INFO_MODEL_NUMBER_UUID,
                                                      DEVICE_INFO_MANUFACTURER_NAME_UUID };
     read_observer_descriptor_t observer_descriptor = {

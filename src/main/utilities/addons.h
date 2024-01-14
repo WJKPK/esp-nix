@@ -17,8 +17,12 @@
 #ifndef _UTILITIES_ADDONS_
 #define _UTILITIES_ADDONS_
 
+#define _STRINGIFY(expr) #expr
+#define STRINGIFY(expr) _STRINGIFY(expr)
+
+#define BUILD_BUG_ON_ZERO(e) ((int)(sizeof(struct { int:(-!!(e)); })))
 #define __same_type(a, b)  __builtin_types_compatible_p(typeof(a), typeof(b))
 #define __must_be_array(a) BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0]))
-#define ARRAY_SIZE(arr)    (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+#define COUNT_OF(arr)    (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
 
 #endif  // _UTILITIES_ADDONS_

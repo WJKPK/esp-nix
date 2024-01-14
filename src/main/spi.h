@@ -1,4 +1,6 @@
 /*
+ * Copyright 2023 WJKPK
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,11 +18,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#ifndef _MAIN_DEVICE_INFO_
-#define _MAIN_DEVICE_INFO_
+
+#ifndef _MAIN_SPI_
+#define _MAIN_SPI_
 
 #include "utilities/error.h"
+#include <stddef.h>
 
-error_status_t device_info_init(void);
+typedef enum {
+    SpiDeviceThermocoupleAfe,
+    SpiDeviceLast
+} spi_dev_t;
+
+error_status_t spi_init(void);
+error_status_t spi_read(spi_dev_t device,  void* out_data, size_t size);
 
 #endif

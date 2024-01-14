@@ -28,6 +28,8 @@
 #define DEVICE_INFO_UUID                        0x180A
 #define DEVICE_INFO_MANUFACTURER_NAME_UUID      0x2A29
 #define DEVICE_INFO_MODEL_NUMBER_UUID           0x2A24
+#define HEATER_TEMPERATURE_READ_UUID            0x2A25
+#define HEATER_MODE_WRITE_UUID                  0x2A26
 
 typedef uint16_t simplified_uuid_t;
 
@@ -46,11 +48,11 @@ typedef struct {
     ble_read_callback_t observer;
 } read_observer_descriptor_t;
 
-error_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor);
-error_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor);
-error_t ble_notify_custom(uint16_t handle, uint8_t* buff, size_t len);
+error_status_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor);
+error_status_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor);
+error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len);
 
-error_t ble_init_nimble(void);
+error_status_t ble_init_nimble(void);
 
 #endif
 

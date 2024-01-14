@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 WJKPK
+ * Modified version of Joshua Saxby (aka @saxbophone) code 
  *  
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef _UTILITIES_ERROR_
-#define _UTILITIES_ERROR_
+#include "pid.h"
 
-#include <stdbool.h>
-
-#define DEFINE_ERROR(name, description) name,
-typedef enum {
-    #include "error.scf"
-    error_last
-} error_status_t;
-#undef DEFINE_ERROR
-
-void _error_print_message(error_status_t error, char* file, unsigned line);
-#define error_print_message(error) _error_print_message(error, __FILE__, __LINE__);
-
-static inline bool error_is_success(error_status_t status) {
-   return status == error_any; 
+pid_state_t pid_iterate(const pid_params_t calibration, pid_state_t state) {
+    float error = state.target - state.actual;
+    state.integral += (error * state.time_delta);
+    float derivative = (error - state.previous_error) / state.time_delta;
+    state.output = (
+        (calibration.kp * error) + (calibration.ki * state.integral) + (calibration.kd * derivative)
+    );
+    state.previous_error = error;
+    return state;
 }
 
-#endif  // _UTILITIES_ERROR_

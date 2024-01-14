@@ -26,17 +26,27 @@
 #include "nimble/nimble_port_freertos.h"
 
 #include "utilities/logger.h"
+#include "utilities/addons.h"
 
 static const char* device_name = "ESP32";
-uint16_t hrs_hrm_handle;
 static uint16_t conn_handle;
 static uint8_t ble_addr_type;
-static error_t ble_advertise (void);
+static error_status_t ble_advertise (void);
 static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt* ctxt, void* arg);
+static int generic_write_access(uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt* ctxt, void* arg);
 
 #define GET_FULL_UUID(simplified_uuid) 0x94, 0x56, simplified_uuid & 0xFF, (simplified_uuid & 0xFF00) >> 8, 0xB4, 0x11, 0x12, 0xFA, \
     simplified_uuid & 0xFF, (simplified_uuid & 0xFF00) >> 8, 0x24, 0x4C, 0x44, 0x14, 0x42, 0x80, 
+
+static struct {
+    uint16_t val_handle;
+    simplified_uuid_t uuid;
+} handle_uuid_mapping[] = {
+    {0, BASIC_CHARACTERISTIC_UUID},
+    {0, HEATER_TEMPERATURE_READ_UUID}
+};
 
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
@@ -48,7 +58,7 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
               /* Characteristic: Heart-rate measurement */
               .uuid       = BLE_UUID128_DECLARE(GET_FULL_UUID(BASIC_CHARACTERISTIC_UUID)),
               .access_cb  = generic_read_access,
-              .val_handle = &hrs_hrm_handle,
+              .val_handle = &handle_uuid_mapping[0].val_handle,
               .flags      = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
               0, /* No more characteristics in this service */
@@ -69,6 +79,18 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MODEL_NUMBER_UUID)),
               .access_cb = generic_read_access,
               .flags     = BLE_GATT_CHR_F_READ,
+          },{
+              /* Characteristic: Model number string */
+              .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_TEMPERATURE_READ_UUID)),
+              .access_cb = generic_read_access,
+              .val_handle = &handle_uuid_mapping[1].val_handle,
+              .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+          },{
+              /* Characteristic: Model number string */
+              .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_MODE_WRITE_UUID)),
+              .access_cb = generic_write_access,
+              .flags     = BLE_GATT_CHR_F_WRITE,
+
           },{
               0, /* No more characteristics in this service */
           }, }
@@ -100,7 +122,7 @@ simplified_uuid_t ble_get_simplified_uuid(const ble_uuid_t* full_uuid) {
     return result;
 }
 
-error_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor) {
+error_status_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor) {
     for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
         if (write_observers[i].observer != NULL)
             continue;
@@ -108,10 +130,10 @@ error_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor) 
         write_observers[i] = observer_descriptor;
         return error_any;
     }
-    return collection_full;
+    return error_collection_full;
 }
 
-error_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor) {
+error_status_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor) {
     for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
         if (read_observers[i].observer != NULL)
             continue;
@@ -119,7 +141,7 @@ error_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor) {
         read_observers[i] = observer_descriptor;
         return error_any;
     }
-    return collection_full;
+    return error_collection_full;
 }
 
 static ble_uuid_any_t ble_get_full_uuid(simplified_uuid_t simplified_uuid) {
@@ -133,10 +155,11 @@ static ble_uuid_any_t ble_get_full_uuid(simplified_uuid_t simplified_uuid) {
 }
 
 static int ble_gap_event (struct ble_gap_event* event, void* arg) {
-    error_t ret = error_any;
+    error_status_t ret = error_any;
     switch (event->type) {
         case BLE_GAP_EVENT_CONNECT:
-            /* A new connection was established or a connection attempt failed */ MODLOG_DFLT(INFO, "connection %s; status=%d\n",
+            /* A new connection was established or a connection attempt failed */
+            log_info("ble", "connection %s; status=%d\n",
               event->connect.status == 0 ? "established" : "failed",
               event->connect.status);
 
@@ -148,26 +171,23 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
-            MODLOG_DFLT(INFO, "disconnect; reason=%d\n", event->disconnect.reason);
+            log_info("ble", "disconnect; reason=%d\n", event->disconnect.reason);
 
             /* Connection terminated; resume advertising */
             ret = ble_advertise();
             break;
 
         case BLE_GAP_EVENT_ADV_COMPLETE:
-            MODLOG_DFLT(INFO, "adv complete\n");
+            log_info("ble", "adv complete\n");
             ret = ble_advertise();
             break;
 
         case BLE_GAP_EVENT_SUBSCRIBE:
-            if (event->subscribe.attr_handle == hrs_hrm_handle) {
-            } else if (event->subscribe.attr_handle != hrs_hrm_handle) {
-            }
             ESP_LOGI("BLE_GAP_SUBSCRIBE_EVENT", "conn_handle from subscribe=%d", conn_handle);
             break;
 
         case BLE_GAP_EVENT_MTU:
-            MODLOG_DFLT(INFO, "mtu update event; conn_handle=%d mtu=%d\n",
+            log_info("ble", "mtu update event; conn_handle=%d mtu=%d\n",
               event->mtu.conn_handle,
               event->mtu.value);
             break;
@@ -176,7 +196,7 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
     return ret == error_any ? 0 : -1;
 }
 
-static error_t ble_advertise (void) {
+static error_status_t ble_advertise (void) {
     struct ble_gap_adv_params adv_params;
     struct ble_hs_adv_fields fields;
 
@@ -190,7 +210,7 @@ static error_t ble_advertise (void) {
     fields.name_len         = strlen(device_name);
     fields.name_is_complete = 1;
     
-    error_t ret = error_any;
+    error_status_t ret = error_any;
     switch(ble_gap_adv_set_fields(&fields)) {
         case BLE_HS_EBUSY:
             ret = action_already_requested;
@@ -207,7 +227,7 @@ static error_t ble_advertise (void) {
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
     if (0 != ble_gap_adv_start(ble_addr_type, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL)) {
-        ret = library_error;
+        ret = error_library_error;
         goto error_handler;
     }
 
@@ -218,9 +238,18 @@ error_handler:
 
 }
 
-error_t ble_notify_custom(uint16_t handle, uint8_t* buff, size_t len) {
+error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len) {
     struct os_mbuf *om = ble_hs_mbuf_from_flat(buff, len);
-    return 0 == ble_gatts_notify_custom(conn_handle, handle, om) ? error_any : library_error;
+    uint16_t handle = 0;
+    for (unsigned i = 0; i < COUNT_OF(handle_uuid_mapping); i++) {
+        if(handle_uuid_mapping[i].uuid == uuid) {
+            handle = handle_uuid_mapping[i].val_handle;
+            goto success;
+        }
+    }
+    return error_unknown_resource;
+success:
+    return 0 == ble_gatts_notify_custom(conn_handle, handle, om) ? error_any : error_library_error;
 }
 
 static bool is_uuid_in_filter(const ble_uuid_t* uuid, simplified_uuid_t const* filter, unsigned count) {
@@ -286,7 +315,7 @@ static void ble_on_sync (void) {
 }
 
 static void ble_on_reset (int reason)              {
-    MODLOG_DFLT(ERROR, "Resetting state; reason=%d", reason);
+    log_info("ble", "Resetting state; reason=%d", reason);
 }
 
 void gatt_svr_register_cb (struct ble_gatt_register_ctxt* ctxt, void* arg) {
@@ -294,13 +323,13 @@ void gatt_svr_register_cb (struct ble_gatt_register_ctxt* ctxt, void* arg) {
 
     switch (ctxt->op) {
         case BLE_GATT_REGISTER_OP_SVC:
-            MODLOG_DFLT(INFO, "registered service %s with handle=%d",
+            log_info("ble", "registered service %s with handle=%d",
               ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
               ctxt->svc.handle);
             break;
 
         case BLE_GATT_REGISTER_OP_CHR:
-            MODLOG_DFLT(INFO, "registering characteristic %s with "
+            log_info("ble", "registering characteristic %s with "
               "def_handle=%d val_handle=%d",
               ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
               ctxt->chr.def_handle,
@@ -308,7 +337,7 @@ void gatt_svr_register_cb (struct ble_gatt_register_ctxt* ctxt, void* arg) {
             break;
 
         case BLE_GATT_REGISTER_OP_DSC:
-            MODLOG_DFLT(INFO, "registering descriptor %s with handle=%d",
+            log_info("ble", "registering descriptor %s with handle=%d",
               ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
               ctxt->dsc.handle);
             break;
@@ -341,11 +370,11 @@ static int gatt_svr_init (void) {
     return error_any;
 
 lib_error:
-    error_print_message(library_error);
-    return library_error;
+    error_print_message(error_library_error);
+    return error_library_error;
 }
 
-error_t ble_init_nimble(void) {
+error_status_t ble_init_nimble(void) {
     esp_err_t ret = nimble_port_init();
     if (ret != ESP_OK)
         goto lib_error;
@@ -363,8 +392,8 @@ error_t ble_init_nimble(void) {
     return error_any;
 
 lib_error:
-    error_print_message(library_error);
-    return library_error;
+    error_print_message(error_library_error);
+    return error_library_error;
 
 }
 

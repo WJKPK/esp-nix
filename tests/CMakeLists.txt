@@ -18,7 +18,9 @@ add_executable(scheduler_test
                init.cpp
                common.cpp
                schedulerTests.cpp
+               timerTests.cpp
                ${UNDER_TEST_CODE_PATH}/main/utilities/scheduler.c
+               ${UNDER_TEST_CODE_PATH}/main/utilities/timer.c
 	            )
 
 target_compile_options(scheduler_test PRIVATE -Og -ggdb -Wall -Werror)
@@ -27,7 +29,9 @@ target_compile_options(freertos_kernel PRIVATE -Og -ggdb -Wall -Werror)
 
 target_include_directories(scheduler_test PRIVATE
   ${UNDER_TEST_CODE_PATH}/main
-  ${TESTS_CODE_PATH}/configs)
+  ${TESTS_CODE_PATH}/configs
+  ${TESTS_CODE_PATH}
+  )
 
 target_link_directories(scheduler_test PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/build)
 target_link_libraries(scheduler_test freertos_kernel freertos_config CppUTest CppUTestExt)

@@ -22,6 +22,7 @@ extern "C" {
 #include "task.h"
 #include "configs/scheduler_types.h"
 #include "utilities/scheduler.h"
+#include "utilities/timer.h"
 }
 
 typedef struct {
@@ -50,7 +51,7 @@ int main (int ac, char** av) {
           }
       };
     TaskHandle_t loop_task_handle = NULL;
-
+    timer_init();
     CHECK_EQUAL(pdPASS,
       xTaskCreate(event_scheduler_loop, "ESLoop", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES - 1,
       &loop_task_handle));
