@@ -33,4 +33,13 @@ static inline bool error_is_success(error_status_t status) {
    return status == error_any; 
 }
 
+void _fatal_handler(error_status_t rc, const char *file, int line, const char *function, const char *expression);
+#define FATAL_IF_FAIL(x) do {                               \
+        error_status_t err_rc_ = (x);                       \
+        if (unlikely(err_rc_ != error_any)) {               \
+            _fatal_handler(err_rc_, __FILE__, __LINE__,     \
+                                    __FUNCTION__, #x);      \
+        }                                                   \
+    } while(0)
+
 #endif  // _UTILITIES_ERROR_

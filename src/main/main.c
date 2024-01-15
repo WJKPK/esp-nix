@@ -15,6 +15,7 @@
  */
 
 #include <stdbool.h>
+#include "esp_err.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOSConfig.h"
@@ -35,7 +36,7 @@
 void app_main (void) {
     logger_init();
     scheduler_init();
-    timer_init();
+    FATAL_IF_FAIL(timer_init());
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -44,10 +45,10 @@ void app_main (void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    ble_init_nimble();
-    device_info_init();
-    spi_init();
-    error_print_message(heat_controller_init());
+    FATAL_IF_FAIL(ble_init_nimble());
+    FATAL_IF_FAIL(device_info_init());
+    FATAL_IF_FAIL(spi_init());
+    FATAL_IF_FAIL(heat_controller_init());
     while(true) {
         scheduler_run();
     }
