@@ -1,3 +1,3 @@
-PERIODIC_TIMER(periodic_timer_one_sec, 1000)
+PERIODIC_TIMER(periodic_timer_ten_msec, 10)
 
 ONESHOT_TIMER(oneshot_heater_controller)

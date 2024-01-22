@@ -22,7 +22,7 @@
 typedef enum {
     #define PERIODIC_TIMER(name, period_ms) name,
     #define ONESHOT_TIMER(name)
-    #include "configs/timer.scf"
+    #include "timer.scf"
     #undef PERIODIC_TIMER
     #undef ONESHOT_TIMER
     periodic_timer_last
@@ -31,7 +31,7 @@ typedef enum {
 typedef enum {
     #define PERIODIC_TIMER(name, period_ms)
     #define ONESHOT_TIMER(name) name,
-    #include "configs/timer.scf"
+    #include "timer.scf"
     #undef PERIODIC_TIMER
     #undef ONESHOT_TIMER
     oneshot_timer_last

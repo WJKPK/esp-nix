@@ -60,7 +60,7 @@ TEST(TimerTests, OneSecondTimerFireFiveTimes) {
           }
       };
 
-    CHECK_EQUAL(error_any, timer_register_callback(periodic_timer_one_sec, timer_callback));
+    CHECK_EQUAL(error_any, timer_register_callback(periodic_timer_ten_msec, timer_callback));
 
     while (!get_test_status());
 }

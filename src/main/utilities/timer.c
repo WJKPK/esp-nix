@@ -101,7 +101,7 @@ error_status_t timer_init(void) {
                                  &oneshot_timers[name].internals);                                              \
                                  oneshot_timers[name].handle != NULL ? ({}) : ({ return error_resource_unavailable; });
 
-    #include "configs/timer.scf"
+    #include "timer.scf"
     #undef PERIODIC_TIMER
     #undef ONESHOT_TIMER 
     return error_any;
