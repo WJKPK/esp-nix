@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-#include "esp_log.h"
+#ifndef LOGGER_OUTPUT_LEVEL
+    #define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_INFO
+#endif
+
+#include <stdio.h>
+
 typedef enum {
     LOG_OUTPUT_VERBOSE,
     LOG_OUTPUT_DEBUG,
@@ -23,39 +28,40 @@ typedef enum {
     LOG_OUTPUT_ERROR
 } LogLevel;
 
-#ifndef LOGGER_OUTPUT_LEVEL
-#define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_INFO
-#endif
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 #if LOGGER_OUTPUT_LEVEL >= LOG_OUTPUT_ERROR
-#define log_error( tag, format, ... ) ESP_LOG_LEVEL_LOCAL(ESP_LOG_ERROR,   tag, format, ##__VA_ARGS__)
+#define log_error(format, ... ) printf(ANSI_COLOR_RED format ANSI_COLOR_RESET "\n", ##__VA_ARGS__)
 #else
-#define log_error( tag, format, ... )
+#define log_error(format, ... )
 #endif
 
 #if LOGGER_OUTPUT_LEVEL >= LOG_OUTPUT_WARNING
-#define log_warning( tag, format, ... ) ESP_LOG_LEVEL_LOCAL(ESP_LOG_WARN,    tag, format, ##__VA_ARGS__)
+#define log_warning(format, ... ) printf(ANSI_COLOR_YELLOW format ANSI_COLOR_RESET "\n", ##__VA_ARGS__)
 #else
-#define log_warning( tag, format, ... )
+#define log_warning(format, ... )
 #endif
 
 #if LOGGER_OUTPUT_LEVEL >= LOG_OUTPUT_INFO
-#define log_info( tag, format, ... ) ESP_LOG_LEVEL_LOCAL(ESP_LOG_INFO, tag, format, ##__VA_ARGS__)
+#define log_info(format, ... ) printf(ANSI_COLOR_GREEN format ANSI_COLOR_RESET "\n", ##__VA_ARGS__)
 #else
-#define log_info( tag, format, ... )
+#define log_info(format, ... )
 #endif
 
 #if LOGGER_OUTPUT_LEVEL >= LOG_OUTPUT_DEBUG
-#define log_debug( tag, format, ... ) ESP_LOG_LEVEL_LOCAL(ESP_LOG_DEBUG,   tag, format, ##__VA_ARGS__)
+#define log_debug(format, ... ) printf(ANSI_COLOR_BLUE format ANSI_COLOR_RESET "\n", ##__VA_ARGS__)
 #else
-#define log_debug( tag, format, ... )
+#define log_debug(format, ... )
 #endif
 
 #if LOGGER_OUTPUT_LEVEL >= LOG_OUTPUT_VERBOSE
-#define log_verbose( tag, format, ... ) ESP_LOG_LEVEL_LOCAL(ESP_LOG_VERBOSE, tag, format, ##__VA_ARGS__)
+#define log_verbose(format, ... ) printf(ANSI_COLOR_CYAN format ANSI_COLOR_RESET "\n", ##__VA_ARGS__)
 #else
-#define log_verbose( tag, format, ... )
+#define log_verbose(format, ... )
 #endif
-
-void logger_init(void);
 

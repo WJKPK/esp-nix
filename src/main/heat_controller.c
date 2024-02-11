@@ -2,8 +2,7 @@
  * Copyright 2023 WJKPK
  *
  * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
+ * or more contributor license agreements.  See the NOTICE file distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
@@ -20,20 +19,25 @@
  */
 
 #include "utilities/timer.h"
-#define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_INFO
+
+#define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_DEBUG
+
+#include "utilities/logger.h"
 
 #include "heat_controller.h"
 
 #include <stdint.h>
+#include <limits.h>
 #include <driver/gpio.h>
 #include "pid.h"
 #include "spi.h"
 #include "ble.h"
 #include "heater_calculator.h"
-#include "utilities/logger.h"
 #include "utilities/addons.h"
 
-const char* tag = "HEATER_CONTROLLER";
+typedef unsigned celcius;
+const unsigned invalid_stage_index = UINT_MAX;
+
 static uint16_t last_readout = 0;
 
 error_status_t setup_toggler_pin(void) {
@@ -64,27 +68,110 @@ void on_temperature_read(simplified_uuid_t uuid, uint8_t** buff, size_t* size) {
     }
 }
 
-static void turn_off_heater(void) {
+typedef enum {
+    HeatingModeJedec,
+    HeatingModeLast 
+} heating_mode_type;
+
+typedef struct {
+    struct {
+        seconds from;
+        seconds to;
+    } time;
+    celcius temperature;
+} temperature_stage;
+
+typedef struct {
+    seconds time;
+    temperature_stage* stages;
+    unsigned actual;
+    unsigned count;
+} heating_mode_descriptor;
+
+static void turn_off_heater(void* args) {
     set_toggler_level(false);
 }
 
-static void calculate_power(void) {
-    float setpoint = 50;
+static bool is_time_in_range(temperature_stage stage, seconds time) {
+    if (stage.time.from <= time && stage.time.to > time)
+        return true;
+    return false;
+}
+
+static void set_actual_stage(heating_mode_descriptor* heating_mode) {
+    unsigned i = 0;
+    bool is_found = false;
+    for (i = heating_mode->actual; i < heating_mode->count; i++) {
+        is_time_in_range(heating_mode->stages[i], heating_mode->time) ? ({ is_found = true; break; }) : ({});
+    }
+    heating_mode->actual = i;
+    if (!is_found)
+        heating_mode->actual = invalid_stage_index;
+}
+
+celcius get_actual_setpoint(heating_mode_descriptor* heating_mode) {
+    return heating_mode->stages[heating_mode->actual].temperature;
+}
+
+static void execute_heating_mode_periodic(void* heating_mode);
+static void execute_heating_mode(heating_mode_descriptor* heating_mode, miliseconds actual_period_length) {
     if (error_any != spi_read(SpiDeviceThermocoupleAfe, &last_readout, sizeof(last_readout))) {
             set_toggler_level(false);
             return;
     }
-    float percent = get_heating_power_percent((float)last_readout, setpoint);
-    log_debug(tag, "actual temperature: %u: power set to: %f", last_readout, percent);
+    set_actual_stage(heating_mode);
+    if (heating_mode->actual == invalid_stage_index) {
+        timer_unregister_callback(heat_controller_tick, execute_heating_mode_periodic);
+        return;
+    }
+    float percent = get_heating_power_percent((float)last_readout, get_actual_setpoint(heating_mode));
+    log_debug("time: %u, temperature read: %u, power set to: %f%%, stage: %u",
+            heating_mode->time, last_readout, percent, heating_mode->actual);
     set_toggler_level(true);
-    const unsigned ms_in_five_seconds = 5000;
-    oneshot_arm(oneshot_heater_controller, percent * ms_in_five_seconds, turn_off_heater);
+    heating_mode->time += miliseconds_to_seconds(actual_period_length);
+    miliseconds turnoff_timeout = percent * actual_period_length;
+    if (turnoff_timeout)
+        oneshot_arm(oneshot_heater_controller, turnoff_timeout, turn_off_heater, NULL);
+}
+
+static void execute_heating_mode_periodic(void* heating_mode) {
+    miliseconds time = periodic_get_period(heat_controller_tick);
+    execute_heating_mode(heating_mode, time);
+}
+
+void start_given_heating_mode(heating_mode_descriptor* heating_mode) {
+    miliseconds time = periodic_get_expire(heat_controller_tick);
+    execute_heating_mode(heating_mode, time);
+    timer_register_callback(heat_controller_tick, execute_heating_mode_periodic, heating_mode);
 }
 
 void on_heater_mode_write(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
+    static temperature_stage jedec[] = {{
+        .time = {
+            .from = 0,
+            .to = 100,
+        },
+        .temperature = 100
+    }, {
+        .time = {
+            .from = 100,
+            .to = 140,
+        },
+        .temperature = 250
+    }, {
+        .time = {
+            .from = 140,
+            .to = 230
+        },
+        .temperature = 30
+    }};
+
+    static heating_mode_descriptor heating_mode[HeatingModeLast] = {
+        {.stages = jedec, .count = COUNT_OF(jedec)}
+    };
     switch (uuid) {
         case HEATER_MODE_WRITE_UUID:
-            timer_register_callback(periodic_timer_five_sec, calculate_power);
+            start_given_heating_mode(&heating_mode[HeatingModeJedec]);
             break;
         default:
             break;

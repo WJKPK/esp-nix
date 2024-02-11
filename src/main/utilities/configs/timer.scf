@@ -1,4 +1,4 @@
 PERIODIC_TIMER(periodic_timer_one_sec, 1000)
-PERIODIC_TIMER(periodic_timer_five_sec, 5000)
+PERIODIC_TIMER(heat_controller_tick, 5000)
 
 ONESHOT_TIMER(oneshot_heater_controller)

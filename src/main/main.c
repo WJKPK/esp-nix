@@ -16,7 +16,6 @@
 
 #include <stdbool.h>
 #include "esp_err.h"
-#include "esp_log.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOSConfig.h"
 /* BLE */
@@ -26,7 +25,6 @@
 #include "spi.h"
 #include "utilities/scheduler.h"
 #include "utilities/error.h"
-#include "utilities/logger.h"
 
 #include "ble.h"
 #include "device_info.h"
@@ -34,7 +32,6 @@
 #include "utilities/timer.h"
 
 void app_main (void) {
-    logger_init();
     scheduler_init();
     FATAL_IF_FAIL(timer_init());
 
@@ -49,6 +46,7 @@ void app_main (void) {
     FATAL_IF_FAIL(device_info_init());
     FATAL_IF_FAIL(spi_init());
     FATAL_IF_FAIL(heat_controller_init());
+
     while(true) {
         scheduler_run();
     }

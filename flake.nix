@@ -2,7 +2,8 @@
   description = "ESP32c3 development";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixpkgs-unstable"; flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
     nixpkgs-esp-dev.url = "github:mirrexagon/nixpkgs-esp-dev";
   };
 

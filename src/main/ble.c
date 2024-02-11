@@ -159,7 +159,7 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
     switch (event->type) {
         case BLE_GAP_EVENT_CONNECT:
             /* A new connection was established or a connection attempt failed */
-            log_info("ble", "connection %s; status=%d\n",
+            log_info("connection %s; status=%d\n",
               event->connect.status == 0 ? "established" : "failed",
               event->connect.status);
 
@@ -171,14 +171,14 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
-            log_info("ble", "disconnect; reason=%d\n", event->disconnect.reason);
-
+            log_info("disconnect; reason=%d\n", event->disconnect.reason);
+            conn_handle = 0; //TODO - some mutex required?
             /* Connection terminated; resume advertising */
             ret = ble_advertise();
             break;
 
         case BLE_GAP_EVENT_ADV_COMPLETE:
-            log_info("ble", "adv complete\n");
+            log_info("adv complete\n");
             ret = ble_advertise();
             break;
 
@@ -187,7 +187,7 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
             break;
 
         case BLE_GAP_EVENT_MTU:
-            log_info("ble", "mtu update event; conn_handle=%d mtu=%d\n",
+            log_info("mtu update event; conn_handle=%d mtu=%d\n",
               event->mtu.conn_handle,
               event->mtu.value);
             break;
@@ -239,6 +239,8 @@ error_handler:
 }
 
 error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len) {
+    if (!conn_handle)
+        return error_resource_unavailable;
     struct os_mbuf *om = ble_hs_mbuf_from_flat(buff, len);
     uint16_t handle = 0;
     for (unsigned i = 0; i < COUNT_OF(handle_uuid_mapping); i++) {
@@ -263,6 +265,9 @@ static bool is_uuid_in_filter(const ble_uuid_t* uuid, simplified_uuid_t const* f
 
 static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
   struct ble_gatt_access_ctxt* ctxt, void* arg) {
+    if (!conn_handle)
+        return error_resource_unavailable;
+
     const ble_uuid_t* ctx_uuid = ctxt->chr->uuid;
     for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
         if(!is_uuid_in_filter(ctx_uuid, read_observers[i].uuid_filter, read_observers[i].filter_count))
@@ -292,6 +297,9 @@ static inline bool is_vla_capable(size_t size) {
 
 static int generic_write_access(uint16_t conn_handle, uint16_t attr_handle,
   struct ble_gatt_access_ctxt* ctxt, void* arg) {
+    if (!conn_handle)
+        return error_resource_unavailable;
+
     const ble_uuid_t* ctx_uuid = ctxt->chr->uuid;
     for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
         if(!is_uuid_in_filter(ctx_uuid, write_observers[i].uuid_filter, write_observers[i].filter_count))
@@ -315,7 +323,7 @@ static void ble_on_sync (void) {
 }
 
 static void ble_on_reset (int reason)              {
-    log_info("ble", "Resetting state; reason=%d", reason);
+    log_info("Resetting state; reason=%d", reason);
 }
 
 void gatt_svr_register_cb (struct ble_gatt_register_ctxt* ctxt, void* arg) {
@@ -323,13 +331,13 @@ void gatt_svr_register_cb (struct ble_gatt_register_ctxt* ctxt, void* arg) {
 
     switch (ctxt->op) {
         case BLE_GATT_REGISTER_OP_SVC:
-            log_info("ble", "registered service %s with handle=%d",
+            log_info("registered service %s with handle=%d",
               ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
               ctxt->svc.handle);
             break;
 
         case BLE_GATT_REGISTER_OP_CHR:
-            log_info("ble", "registering characteristic %s with "
+            log_info("registering characteristic %s with "
               "def_handle=%d val_handle=%d",
               ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
               ctxt->chr.def_handle,
@@ -337,7 +345,7 @@ void gatt_svr_register_cb (struct ble_gatt_register_ctxt* ctxt, void* arg) {
             break;
 
         case BLE_GATT_REGISTER_OP_DSC:
-            log_info("ble", "registering descriptor %s with handle=%d",
+            log_info("registering descriptor %s with handle=%d",
               ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
               ctxt->dsc.handle);
             break;

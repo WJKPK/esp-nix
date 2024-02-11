@@ -19,6 +19,9 @@
 
 #include "utilities/error.h"
 
+typedef unsigned miliseconds;
+typedef unsigned seconds;
+
 typedef enum {
     #define PERIODIC_TIMER(name, period_ms) name,
     #define ONESHOT_TIMER(name)
@@ -37,11 +40,23 @@ typedef enum {
     oneshot_timer_last
 } oneshot_timer_t;
 
-typedef void (*periodic_timer_callback_t)(void);
-typedef void (*oneshot_timer_callback_t)(void);
+typedef void (*periodic_timer_callback_t)(void* args);
+typedef void (*oneshot_timer_callback_t)(void* args);
 
-error_status_t oneshot_arm(oneshot_timer_t timer, unsigned period_ms, oneshot_timer_callback_t callback);
-error_status_t timer_register_callback(periodic_timer_t timer, periodic_timer_callback_t callback);
+static inline seconds miliseconds_to_seconds(miliseconds milisec) {
+    return milisec / 1000;
+}
+
+static inline miliseconds seconds_to_miliseconds(seconds sec) {
+    return sec * 1000;
+}
+
+error_status_t oneshot_arm(oneshot_timer_t timer, unsigned period_ms, oneshot_timer_callback_t callback, void* args);
+miliseconds periodic_get_period(periodic_timer_t timer);
+miliseconds periodic_get_expire(periodic_timer_t timer);
+miliseconds oneshot_get_expire(oneshot_timer_t timer);
+error_status_t timer_register_callback(periodic_timer_t timer, periodic_timer_callback_t callback, void* args);
+error_status_t timer_unregister_callback(periodic_timer_t timer, periodic_timer_callback_t callback);
 error_status_t timer_init(void);
 
 #endif  // _UTILITIES_TIMER_
