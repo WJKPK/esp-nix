@@ -16,6 +16,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <limits.h>
 #include <string.h>
 #include "host/ble_hs.h"
 #include "host/ble_uuid.h"
@@ -28,8 +29,11 @@
 #include "utilities/logger.h"
 #include "utilities/addons.h"
 
-static const char* device_name = "ESP32";
-static uint16_t conn_handle;
+_Static_assert(1 == CONFIG_BT_NIMBLE_MAX_CONNECTIONS, "Component tested with only one concurrent connection!");
+#define BLE_CONN_HANDLE_INVALID   0xFFFF
+
+static const char* device_name = "ThermoPlate";
+static uint16_t conn_handle = BLE_CONN_HANDLE_INVALID;
 static uint8_t ble_addr_type;
 static error_status_t ble_advertise (void);
 static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
@@ -44,49 +48,36 @@ static struct {
     uint16_t val_handle;
     simplified_uuid_t uuid;
 } handle_uuid_mapping[] = {
-    {0, BASIC_CHARACTERISTIC_UUID},
     {0, HEATER_TEMPERATURE_READ_UUID}
 };
 
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
-        /* Service: Heart-rate */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(BASIC_CHARACTERISTIC_SERVICE_UUID),
+        .uuid = BLE_UUID16_DECLARE(DEVICE_INFO_SERVICE),
         .characteristics = (struct ble_gatt_chr_def[])
         { {
-              /* Characteristic: Heart-rate measurement */
-              .uuid       = BLE_UUID128_DECLARE(GET_FULL_UUID(BASIC_CHARACTERISTIC_UUID)),
-              .access_cb  = generic_read_access,
-              .val_handle = &handle_uuid_mapping[0].val_handle,
-              .flags      = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-          },{
-              0, /* No more characteristics in this service */
-          }, }
-    },
-    {
-        /* Service: Device Information */
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(DEVICE_INFO_UUID),
-        .characteristics = (struct ble_gatt_chr_def[])
-        { {
-              /* Characteristic: * Manufacturer name */
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MANUFACTURER_NAME_UUID)),
               .access_cb = generic_read_access,
               .flags     = BLE_GATT_CHR_F_READ,
           },{
-              /* Characteristic: Model number string */
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MODEL_NUMBER_UUID)),
               .access_cb = generic_read_access,
               .flags     = BLE_GATT_CHR_F_READ,
-          },{
-              /* Characteristic: Model number string */
+          }, {
+              0, /* No more characteristics in this service */
+          }, }
+    },
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = BLE_UUID16_DECLARE(DEVICE_MEASUREMENT_SERVICE),
+        .characteristics = (struct ble_gatt_chr_def[])
+        { {
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_TEMPERATURE_READ_UUID)),
               .access_cb = generic_read_access,
-              .val_handle = &handle_uuid_mapping[1].val_handle,
+              .val_handle = &handle_uuid_mapping[0].val_handle,
               .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
-              /* Characteristic: Model number string */
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_MODE_WRITE_UUID)),
               .access_cb = generic_write_access,
               .flags     = BLE_GATT_CHR_F_WRITE,
@@ -113,6 +104,10 @@ simplified_uuid_t ble_get_simplified_uuid(const ble_uuid_t* full_uuid) {
         case BLE_UUID_TYPE_128:
             result |= uuid_full_casted.u128.value[8];
             result |= ((uint16_t)uuid_full_casted.u128.value[9]) << 8;
+            break;
+
+        case BLE_UUID_TYPE_16:
+            result = uuid_full_casted.u16.value;
             break;
 
         default:
@@ -167,12 +162,17 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
                 /* Connection failed; resume advertising */
                 ret = ble_advertise();
             }
+            if (conn_handle != BLE_CONN_HANDLE_INVALID) {
+                ret = (0 == ble_gap_terminate(event->connect.conn_handle, BLE_ERR_CONN_PARMS)) ?
+                    error_any : error_library_error;
+                break;
+            }
             conn_handle = event->connect.conn_handle;
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
             log_info("disconnect; reason=%d\n", event->disconnect.reason);
-            conn_handle = 0; //TODO - some mutex required?
+            conn_handle = BLE_CONN_HANDLE_INVALID; //TODO - some mutex required?
             /* Connection terminated; resume advertising */
             ret = ble_advertise();
             break;
@@ -239,7 +239,7 @@ error_handler:
 }
 
 error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len) {
-    if (!conn_handle)
+    if (BLE_CONN_HANDLE_INVALID == conn_handle)
         return error_resource_unavailable;
     struct os_mbuf *om = ble_hs_mbuf_from_flat(buff, len);
     uint16_t handle = 0;
@@ -265,7 +265,7 @@ static bool is_uuid_in_filter(const ble_uuid_t* uuid, simplified_uuid_t const* f
 
 static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
   struct ble_gatt_access_ctxt* ctxt, void* arg) {
-    if (!conn_handle)
+    if (BLE_CONN_HANDLE_INVALID == conn_handle)
         return error_resource_unavailable;
 
     const ble_uuid_t* ctx_uuid = ctxt->chr->uuid;
@@ -297,7 +297,7 @@ static inline bool is_vla_capable(size_t size) {
 
 static int generic_write_access(uint16_t conn_handle, uint16_t attr_handle,
   struct ble_gatt_access_ctxt* ctxt, void* arg) {
-    if (!conn_handle)
+    if (BLE_CONN_HANDLE_INVALID == conn_handle)
         return error_resource_unavailable;
 
     const ble_uuid_t* ctx_uuid = ctxt->chr->uuid;

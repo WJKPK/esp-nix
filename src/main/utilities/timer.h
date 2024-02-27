@@ -20,6 +20,7 @@
 #include "utilities/error.h"
 
 typedef unsigned miliseconds;
+typedef unsigned microseconds;
 typedef unsigned seconds;
 
 typedef enum {
@@ -42,6 +43,10 @@ typedef enum {
 
 typedef void (*periodic_timer_callback_t)(void* args);
 typedef void (*oneshot_timer_callback_t)(void* args);
+
+static inline miliseconds microseconds_to_miliseconds(microseconds microsec) {
+    return microsec / 1000;
+}
 
 static inline seconds miliseconds_to_seconds(miliseconds milisec) {
     return milisec / 1000;

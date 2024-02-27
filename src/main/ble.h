@@ -23,12 +23,11 @@
 #include "nimble/ble.h"
 #include "utilities/error.h"
 
-#define BASIC_CHARACTERISTIC_SERVICE_UUID       0x180D
-#define BASIC_CHARACTERISTIC_UUID               0x2A37
-#define DEVICE_INFO_UUID                        0x180A
+#define DEVICE_MEASUREMENT_SERVICE              0x181A
+#define DEVICE_INFO_SERVICE                     0x180A
 #define DEVICE_INFO_MANUFACTURER_NAME_UUID      0x2A29
 #define DEVICE_INFO_MODEL_NUMBER_UUID           0x2A24
-#define HEATER_TEMPERATURE_READ_UUID            0x2A25
+#define HEATER_TEMPERATURE_READ_UUID            0x2A6E
 #define HEATER_MODE_WRITE_UUID                  0x2A26
 
 typedef uint16_t simplified_uuid_t;

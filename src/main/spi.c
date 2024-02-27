@@ -7,9 +7,9 @@
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 
-#define SPI_CLOCK_SOURCE 1000000UL
+#define SPI_CLOCK_SOURCE 500000UL
 #define SPI_HOST SPI2_HOST
-#define SPI_MISO 4
+#define SPI_MISO 7
 #define AFE_SPI_CS 5
 #define SPI_SCLK 10
 

@@ -27,6 +27,7 @@
 #include "utilities/error.h"
 
 #include "ble.h"
+#include "lcd.h"
 #include "device_info.h"
 #include "heat_controller.h"
 #include "utilities/timer.h"
@@ -46,8 +47,10 @@ void app_main (void) {
     FATAL_IF_FAIL(device_info_init());
     FATAL_IF_FAIL(spi_init());
     FATAL_IF_FAIL(heat_controller_init());
+    ldc_init();
 
     while(true) {
         scheduler_run();
     }
 }
+
