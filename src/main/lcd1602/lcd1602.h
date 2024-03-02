@@ -29,6 +29,8 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#define LCD1602_MAX_LINE_LEN 16U
+
 typedef unsigned pin_t;
 typedef struct {
     pin_t rs;

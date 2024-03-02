@@ -5,11 +5,13 @@
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs-esp-dev.url = "github:mirrexagon/nixpkgs-esp-dev";
+    cppumockgen.url = "./tests/mockgen";
   };
 
-  outputs = { self, nixpkgs, flake-utils, nixpkgs-esp-dev }:
+  outputs = { self, nixpkgs, flake-utils, nixpkgs-esp-dev, cppumockgen }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
     pkgs = import nixpkgs { inherit system; overlays = [(import "${nixpkgs-esp-dev}/overlay.nix")];};
+    mockgen = cppumockgen.packages.${system}.default;
     esp-idf = with pkgs; esp-idf-esp32c3.override {
       rev = "79b1379662b547f6eb0e5fed33df70587b03d99c"; sha256 = "sha256-JNJ4wfkS6lEMNeaMf06ORzNPgHQ59s96zMlm9/lSS9A=";
     };
@@ -39,6 +41,7 @@
           pkgs.uncrustify
           pkgs.cpputest
           pkgs.cmake
+          mockgen
         ];
       };
       packages.test = pkgs.stdenv.mkDerivation {
@@ -46,6 +49,7 @@
         src = ./.;
         nativeBuildInputs = [
           pkgs.cmake
+          mockgen
         ];
         buildInputs = [
           pkgs.cpputest

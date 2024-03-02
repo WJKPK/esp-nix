@@ -22,7 +22,37 @@
 
 #include "utilities/error.h"
 
-bool ldc_init(void);
+#define LCD_MAX_LINE_LEN 16U
+#define LCD_MAX_LINE_NUMBER 2U
+
+typedef enum {
+    kCustomSymbolHeart,
+    kCustomSymbolPlateProgram,
+    kCustomSymbolArrowUp,    
+    kCustomSymbolArrowDown,    
+    kCustomSymbolLast
+} custom_symbol;
+
+typedef struct {
+    struct {
+        unsigned start_position;
+        char content[LCD_MAX_LINE_LEN];
+    } text;
+    struct {
+        unsigned start_position;
+        custom_symbol symbol;
+    } symbol;
+} lcd_line;
+
+typedef struct {
+    lcd_line line_descriptors[LCD_MAX_LINE_NUMBER];
+} lcd_descriptor;
+
+#define LCD_EMPTY_LINE ((lcd_line){ .text.content = "", .symbol.symbol = kCustomSymbolLast})
+#define LCD_EMPTY_SCREEN ((lcd_descriptor){ .line_descriptors[0] = LCD_EMPTY_LINE, .line_descriptors[1] = LCD_EMPTY_LINE })
+
+error_status_t ldc_init(void);
+error_status_t lcd_send_request(lcd_descriptor* lcd_descriptor);
 
 #endif // _MAIN_LCD_
 

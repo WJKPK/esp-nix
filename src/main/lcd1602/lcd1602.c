@@ -1,29 +1,19 @@
-/*
-  Library:        lcd16x2 - Parallel 8/4 bits
-  Written by:     Mohamed Yaqoob
-  Date Written:   04/12/2017
-  Updated:        26/06/2020
-  Description:    This is a library for the standard 16X2 LCD display, for the STM32 MCUs based on HAL libraries.
-                  It perfroms the basic Text/Number printing to your 16X2 LCD, in 8 bits and 4 bits modes of operation.
+/* 
+ * Copyright 2023 WJKPK
+ *  
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-  References**:
-                  This was written based on the open source Arduino LiquidCrystal library
-                  and by referring to the DATASHEET of the LCD16X2, also with the help of
-                  the following YouTube tutorials on LCD 16X2:
-                  (1): 'RC Tractor Guy' YouTube tutorial on the following link:
-                       https://www.youtube.com/watch?v=efi2nlsvbCI
-                  (2): 'Explore Embedded' YouTube tutorial on the following link:
-                       https://www.youtube.com/watch?v=YDJISiPUdA8
-
- * Copyright (C) 2017 - M.Yaqoob - MutexEmbedded
-   This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
-   of the GNU General Public License version 3 as published by the Free Software Foundation.
-
-   This software library is shared with public for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
-   or indirectly by this software, read more about this on the GNU General Public License.
-*/
-
-// r/w always low
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -66,7 +56,7 @@ static void lcd16x2_enablePulse(void) {
     interface.pin_set(interface.pins.enable, true);
     interface.wait(20); 
     interface.pin_set(interface.pins.enable, false);
-    interface.wait(60);
+    interface.wait(50);
 }
 
 static void lcd16x2_rs(bool state) {
@@ -142,7 +132,7 @@ bool lcd16x2_createChar(uint8_t location, uint8_t charmap[]) {
         return false;
     location &= 0x7; // we only have 8 locations 0-7
     lcd16x2_writeCommand(LCD_SETCGRAMADDR | (location << 3));
-    for (int i=0; i<8; i++) {
+    for (unsigned i = 0; i < 8; i++) {
         lcd16x2_writeData(charmap[i]);
     }
     return true;
@@ -206,12 +196,12 @@ void lcd16x2_shiftLeft(uint8_t offset) {
 }
 
 bool lcd16x2_printf(const char* str, ...) {
-    char string_array[16];
+    char string_array[LCD1602_MAX_LINE_LEN];
     int string_size = sizeof(string_array);
 
     va_list args;
     va_start(args, str);
-    int result = snprintf(string_array, string_size, str, args);
+    int result = vsnprintf(string_array, string_size, str, args);
     va_end(args);
     
     if (result >= string_size || result < 0)

@@ -15,6 +15,7 @@
  */
 
 #include <stdbool.h>
+#include <driver/gpio.h>
 #include "esp_err.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOSConfig.h"
@@ -42,6 +43,7 @@ void app_main (void) {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
     FATAL_IF_FAIL(ble_init_nimble());
     FATAL_IF_FAIL(device_info_init());

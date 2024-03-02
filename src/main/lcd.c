@@ -22,13 +22,15 @@
 #include "lcd.h"
 #include <rom/ets_sys.h>
 #include <driver/gpio.h>
-
+#include <string.h>
 #include "FreeRTOS.h"
 #include "timers.h"
 
 #include "lcd1602/lcd1602.h"
 #include "utilities/timer.h"
+#include "utilities/addons.h"
 #include "utilities/logger.h"
+#include "utilities/scheduler.h"
 
 #define LCD_D4_LINE 9U
 #define LCD_D5_LINE 6U
@@ -68,7 +70,34 @@ bool lcd_pin_set(pin_t gpio_num, bool level) {
     return ESP_OK == gpio_set_level(gpio_num, (uint32_t)level);
 }
 
-bool ldc_init(void) {
+static bool is_string(char* text) {
+   return strlen(text) > 0;
+}
+
+static bool is_symbol(custom_symbol symbol) {
+   return symbol != kCustomSymbolLast;
+}
+
+static void print_screen(lcd_descriptor screen) {
+    for (unsigned i = 0; i < COUNT_OF(screen.line_descriptors); i++) {
+        lcd_line line = screen.line_descriptors[i];
+        if (is_string(line.text.content)) {
+            lcd16x2_setCursor(i, line.text.start_position);
+            lcd16x2_printf("%s", line.text.content);
+        }
+        if (is_symbol(line.symbol.symbol)) {
+            lcd16x2_setCursor(i, line.symbol.start_position);
+            lcd16x2_writeCustom(line.symbol.symbol);
+        }
+    }
+}
+
+static void on_lcd_descriptor(void* data) {
+    lcd_descriptor* desc = data;
+    print_screen(*desc);
+}
+
+error_status_t ldc_init(void) {
     lcd_gpio_init();
     lcd1602_interface iface = {
         .wait = lcd_delay,
@@ -83,7 +112,7 @@ bool ldc_init(void) {
         .pin_set = lcd_pin_set 
     };
     lcd16x2_init_4bits(iface);
-    uint8_t heart[8] = {
+    uint8_t heart[] = {
         0b00000,
         0b01010,
         0b11111,
@@ -93,7 +122,7 @@ bool ldc_init(void) {
         0b00000,
         0b00000
     };
-    uint8_t plate_program[8] = {
+    uint8_t plate_program[] = {
         0b00000,
         0b01110,
         0b01010,
@@ -103,17 +132,66 @@ bool ldc_init(void) {
         0b00000,
         0b11111
     };
-    lcd16x2_createChar(0, heart);
-    lcd16x2_createChar(1, plate_program);
+    uint8_t arrow_up[] = {
+        0b00000,
+        0b00100,
+        0b01110,
+        0b11111,
+        0b00100,
+        0b00100,
+        0b00100,
+        0b00000
+    };
+
+    uint8_t arrow_down[] = {
+      0b00000,
+      0b00100,
+      0b00100,
+      0b00100,
+      0b11111,
+      0b01110,
+      0b00100,
+      0b00000
+    };
+
+    if (false == lcd16x2_createChar(kCustomSymbolHeart, heart)
+        && lcd16x2_createChar(kCustomSymbolPlateProgram, plate_program)
+        && lcd16x2_createChar(kCustomSymbolArrowUp, arrow_up)
+        && lcd16x2_createChar(kCustomSymbolArrowDown, arrow_down))
+        return error_unknown_resource;
 
     lcd16x2_clear();
     lcd16x2_cursorShow(false);
-    lcd16x2_writeCustom(0);
-    lcd16x2_printf(" Kocham Gosie!");
-    lcd16x2_2ndLine();
-    lcd16x2_writeCustom(1);
-    lcd16x2_printf(" JEDEC");
 
-
-    return true;
+    lcd_descriptor start_lcd = 
+    {
+        .line_descriptors[0] = {
+            .text = {
+                .content = "ThermoPlate",
+                .start_position = 2,
+            },
+            .symbol = {
+                .symbol = kCustomSymbolArrowUp,
+                .start_position = 15,
+            },
+        },
+        .line_descriptors[1] = LCD_EMPTY_LINE
+    };
+    start_lcd.line_descriptors[1].symbol.symbol = kCustomSymbolArrowDown;
+    start_lcd.line_descriptors[1].symbol.start_position = 15;
+    print_screen(start_lcd);
+    if (!scheduler_subscribe(SchedulerQueueLcd, on_lcd_descriptor))
+        return error_collection_full;
+    return error_any;
 }
+
+error_status_t lcd_send_request(lcd_descriptor* lcd_descriptor) {
+    if (lcd_descriptor == NULL)
+        return error_null;
+
+    if (!scheduler_enqueue(SchedulerQueueLcd, lcd_descriptor))
+        return error_collection_full;
+
+    return error_any;
+}
+
