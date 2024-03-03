@@ -53,14 +53,14 @@ static unsigned repetitions_counter = 0;
 constexpr unsigned no_of_repetitions(5);
 
 TEST(TimerTests, OneSecondTimerFireFiveTimes) {
-    periodic_timer_callback_t timer_callback = [](void) {
+    periodic_timer_callback_t timer_callback = [](void*) {
           repetitions_counter++;
           if (repetitions_counter == no_of_repetitions) {
               set_test_end();
           }
       };
 
-    CHECK_EQUAL(error_any, timer_register_callback(periodic_timer_ten_msec, timer_callback));
+    CHECK_EQUAL(error_any, timer_register_callback(periodic_timer_ten_msec, timer_callback, NULL));
 
     while (!get_test_status());
 }

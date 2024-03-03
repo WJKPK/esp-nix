@@ -1,27 +1,23 @@
 /*
-  Library:        lcd16x2 - Parallel 8/4 bits
-  Written by:     Mohamed Yaqoob
-  Date Written:   04/12/2017
-  Updated:        26/06/2020
-  Description:    This is a library for the standard 16X2 LCD display, for the STM32 MCUs based on HAL libraries.
-                  It perfroms the basic Text/Number printing to your 16X2 LCD, in 8 bits and 4 bits modes of operation.
-
-  References**:
-                  This was written based on the open source Arduino LiquidCrystal library
-                  and by referring to the DATASHEET of the LCD16X2, also with the help of
-                  the following YouTube tutorials on LCD 16X2:
-                  (1): 'RC Tractor Guy' YouTube tutorial on the following link:
-                       https://www.youtube.com/watch?v=efi2nlsvbCI
-                  (2): 'Explore Embedded' YouTube tutorial on the following link:
-                       https://www.youtube.com/watch?v=YDJISiPUdA8
-
- * Copyright (C) 2017 - M.Yaqoob - MutexEmbedded
-   This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
-   of the GNU General Public License version 3 as published by the Free Software Foundation.
-
-   This software library is shared with public for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
-   or indirectly by this software, read more about this on the GNU General Public License.
-*/
+ * Copyright 2024 WJKPK
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership. The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 #ifndef LCD16X2_H_
 #define LCD16X2_H_

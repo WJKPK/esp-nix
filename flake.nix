@@ -1,5 +1,5 @@
 {
-  description = "ESP32c3 development";
+  description = "ESP32C3 development";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
@@ -10,81 +10,20 @@
 
   outputs = { self, nixpkgs, flake-utils, nixpkgs-esp-dev, cppumockgen }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
+    idf-revision = "79b1379662b547f6eb0e5fed33df70587b03d99c";
     pkgs = import nixpkgs { inherit system; overlays = [(import "${nixpkgs-esp-dev}/overlay.nix")];};
     mockgen = cppumockgen.packages.${system}.default;
     esp-idf = with pkgs; esp-idf-esp32c3.override {
-      rev = "79b1379662b547f6eb0e5fed33df70587b03d99c"; sha256 = "sha256-JNJ4wfkS6lEMNeaMf06ORzNPgHQ59s96zMlm9/lSS9A=";
+      rev = idf-revision; sha256 = "sha256-JNJ4wfkS6lEMNeaMf06ORzNPgHQ59s96zMlm9/lSS9A=";
     };
-    getFetchContentFlags = file:
-      let
-        inherit (builtins) head elemAt match;
-        parse = match "(.*)\nFetchContent_Declare\\(\n  ([^\n]*)\n([^)]*)\\).*"
-          file;
-        name = elemAt parse 1;
-        content = elemAt parse 2;
-        getKey = key: elemAt
-          (match "(.*\n)?  ${key} ([^\n]*)(\n.*)?" content) 1; url = getKey "GIT_REPOSITORY";
-        pkg = pkgs.fetchFromGitHub {
-          owner = head (match ".*github.com/([^/]*)/.*" url);
-          repo = head (match ".*/([^/]*)\\.git" url);
-          rev = getKey "GIT_TAG";
-          hash = getKey "# hash:";
-        };
-      in
-        if (parse == null) then [ ] else
-        ([ "-DFETCHCONTENT_SOURCE_DIR_${nixpkgs.lib.toUpper name}=${pkg}" ] ++
-          getFetchContentFlags (head parse));
+    get-drv-by-name = name: derivations: builtins.head (builtins.filter (d: d.name == name) derivations);
+    get-compiler-path = get-drv-by-name "riscv32-esp-elf-esp-idf-${idf-revision}";
+    compiler-path = get-compiler-path esp-idf.propagatedBuildInputs;
     in {
-      devShell = pkgs.mkShell {
-        buildInputs = [
-          esp-idf
-          pkgs.uncrustify
-          pkgs.cpputest
-          pkgs.cmake
-          mockgen
-        ];
-      };
-      packages.test = pkgs.stdenv.mkDerivation {
-        name = "tests";
-        src = ./.;
-        nativeBuildInputs = [
-          pkgs.cmake
-          mockgen
-        ];
-        buildInputs = [
-          pkgs.cpputest
-        ];
-        #probably good option to set while debuging
-        #dontFixup = true;
-        cmakeFlags = getFetchContentFlags
-            (builtins.readFile ./CMakeLists.txt) ++ ["-DCMAKE_SKIP_BUILD_RPATH=ON"];
-        installPhase = "mkdir -p $out/bin; cp tests $out/bin/.; rm -rf *";
-      };
+      devShell = pkgs.callPackage ./shell.nix { inherit esp-idf mockgen compiler-path; };
 
-      defaultPackage = pkgs.stdenv.mkDerivation {
-        name = "esp32c3";
-        src = ./src;
+      packages.test = pkgs.callPackage ./tests.nix { inherit mockgen compiler-path; };
 
-        buildInputs = [
-          esp-idf
-        ];
-
-        phases = [ "unpackPhase" "buildPhase" ];
-    
-        buildPhase = ''
-          # The build system wants to create a cache directory somewhere in the home
-          # directory, so we make up a home for it.
-          mkdir temp-home
-          export HOME=$(readlink -f temp-home)
-
-          # idf-component-manager wants to access the network, so we disable it.
-          export IDF_COMPONENT_MANAGER=0
-
-          idf.py build
-
-          mkdir $out
-          cp -r build/* $out
-        '';
-      };
+      defaultPackage = pkgs.callPackage ./build.nix { inherit esp-idf; };
     });
 }

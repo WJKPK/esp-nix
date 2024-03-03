@@ -29,14 +29,17 @@
       packages.default = pkgs.stdenv.mkDerivation {
         name = "CppUMockGen";
         src = cppumock;
+
         nativeBuildInputs = [
           pkgs.cmake
           cxxopts_custom
         ];
+
         buildInputs = [
           pkgs.libcxx
           pkgs.libclang
         ];
+
         cmakeFlags = ["-DLibClang_LIB_PATH=${pkgs.lib.getLib pkgs.libclang}/lib/libclang.so"];
       };
    });
