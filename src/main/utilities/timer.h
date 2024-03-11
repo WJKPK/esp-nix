@@ -17,11 +17,13 @@
 #ifndef _UTILITIES_TIMER_
 #define _UTILITIES_TIMER_
 
+#include <inttypes.h>
 #include "utilities/error.h"
 
 typedef unsigned miliseconds;
 typedef unsigned microseconds;
 typedef unsigned seconds;
+typedef void (*soft_irq_routine)(void *, uint32_t);
 
 typedef enum {
     #define PERIODIC_TIMER(name, period_ms) name,
@@ -63,5 +65,6 @@ miliseconds oneshot_get_expire(oneshot_timer_t timer);
 error_status_t timer_register_callback(periodic_timer_t timer, periodic_timer_callback_t callback, void* args);
 error_status_t timer_unregister_callback(periodic_timer_t timer, periodic_timer_callback_t callback);
 error_status_t timer_init(void);
+error_status_t timer_soft_irq(soft_irq_routine routine, void* arg, uint32_t uarg);
 
 #endif  // _UTILITIES_TIMER_

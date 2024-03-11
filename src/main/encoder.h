@@ -26,4 +26,11 @@
 
 error_status_t encoder_init(void);
 
+typedef enum {
+    ENCODER_EVENT_UP,
+    ENCODER_EVENT_DOWN,
+    ENCODER_EVENT_PUSH,
+    ENCODER_EVENT_LAST
+} encoder_event_type;
+
 #endif

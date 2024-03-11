@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 WJKPK
+ * Copyright 2024 WJKPK
  *  
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef _UTILITIES_CONFIGS_SCHEDULER_TYPES_
-#define _UTILITIES_CONFIGS_SCHEDULER_TYPES_
+#ifndef _MAIN_MENU_
+#define _MAIN_MENU_
+typedef enum {
+    MENU_EVENT_ENCODER_UP,
+    MENU_EVENT_ENCODER_DOWN,
+    MENU_EVENT_ENCODER_PUSH,
+    MENU_EVENT_PREEMPT_REQUEST,
+    MENU_EVENT_PREEMPT_TAKE,
+    MENU_EVENT_REQUEST_DONE,
+    MENU_EVENT_ENCODER_LAST
+} menu_event_type;
 
-#include "lcd.h"
-#include "menu.h"
-#include "heat_controller_interface.h"
+void menu_init(void);
 
-#endif  // _UTILITIES_CONFIGS_SCHEDULER_TYPES_
+#endif // _MAIN_MENU_
+

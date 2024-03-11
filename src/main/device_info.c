@@ -27,21 +27,21 @@
 static const char* manuf_name = "WJKPK";
 static const char* model_num  = "ESP32C3Generic";
 
-void on_device_info_read(simplified_uuid_t uuid, uint8_t** buff, size_t* size) {
+static read_buff_descriptor_t on_device_info_read(simplified_uuid_t uuid) {
+    read_buff_descriptor_t read_desc = EMPTY_READ_BUFF;
     switch (uuid) {
         case DEVICE_INFO_MODEL_NUMBER_UUID:
-            *buff = (uint8_t*)model_num;
-            *size = strlen(model_num);
+            read_desc.buff = (void*)model_num;
+            read_desc.size = strlen(model_num);
             break;
         case DEVICE_INFO_MANUFACTURER_NAME_UUID:
-            *buff = (uint8_t*)manuf_name;
-            *size = strlen(manuf_name);
+            read_desc.buff = (uint8_t*)manuf_name;
+            read_desc.size = strlen(manuf_name);
             break;
         default:
-            *buff = (uint8_t*)manuf_name;
-            *size = 0;
             break;
     }
+    return EMPTY_READ_BUFF;
 }
 
 error_status_t device_info_init(void) {

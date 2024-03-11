@@ -20,81 +20,56 @@
  */
 
 #include <stdint.h>
+#include <limits.h>
 
 #include "encoder.h"
+#include "encoder_fsm.h"
+
+#include "utilities/timer.h"
+#include "utilities/scheduler.h"
 
 #include <esp_attr.h>
 #include <driver/gpio.h>
+
+#define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_DEBUG
+#include "utilities/logger.h"
 
 #define ENCODER_PUSH_PIN GPIO_NUM_0
 #define ENCODER_A_PIN GPIO_NUM_20
 #define ENCODER_B_PIN GPIO_NUM_21
 
-typedef enum {
-     ENCODER_STATE_WAITING,
-     ENCODER_STATE_A_RECEIVED,
-     ENCODER_STATE_B_RECEIVED,
-     ENCODER_STATE_UP,
-     ENCODER_STATE_DOWN,
-     ENCODER_STATE_INVALID
-} encoder_invalidator_state;
+static void process_detected_state(void* args, uint32_t state) {
+    encoder_event_type event = ENCODER_EVENT_LAST;
+    switch (state) {
+        case encoder_direction_clockwise:
+            log_info("Up!");
+            event = ENCODER_EVENT_UP;
+            break;
 
-typedef encoder_invalidator_state
-(*invalidator_state_handler)(encoder_invalidator_state);
+        case encoder_direction_counterclockwise:
+            event = ENCODER_EVENT_DOWN;
+            log_info("Down!");
+            break;
 
-static encoder_invalidator_state
-handler_waiting_state(encoder_invalidator_state input) {
-     if (input == ENCODER_STATE_A_RECEIVED)
-         return ENCODER_STATE_A_RECEIVED;
-
-     if (input == ENCODER_STATE_B_RECEIVED)
-         return ENCODER_STATE_B_RECEIVED;
-
-     return ENCODER_STATE_INVALID;
+        default:
+            break;
+    }
+    scheduler_enqueue(SchedulerQueueMenu, &event);
 }
 
-static encoder_invalidator_state
-handle_a_received(encoder_invalidator_state input) {
-     if (input == ENCODER_STATE_B_RECEIVED)
-         return ENCODER_STATE_UP;
-
-     return ENCODER_STATE_INVALID;
+static void process_button_click(void* args, uint32_t state) {
+    log_info("Click!");
+    encoder_event_type event = ENCODER_EVENT_PUSH;
+    scheduler_enqueue(SchedulerQueueMenu, &event);
 }
 
-static encoder_invalidator_state
-handler_b_received(encoder_invalidator_state input) {
-     if (input == ENCODER_STATE_A_RECEIVED)
-         return ENCODER_STATE_DOWN;
-
-     return ENCODER_STATE_INVALID;
-}
-
-const invalidator_state_handler state_table[] = {
-     [ENCODER_STATE_WAITING] = handler_waiting_state,
-     [ENCODER_STATE_A_RECEIVED] = handle_a_received,
-     [ENCODER_STATE_B_RECEIVED] = handler_b_received,
-     [ENCODER_STATE_UP] = handler_waiting_state,
-     [ENCODER_STATE_DOWN] = handler_waiting_state,
-     [ENCODER_STATE_INVALID] = handler_waiting_state
-};
-
-static encoder_invalidator_state
-encoder_invalidator_process(encoder_invalidator_state input) {
-     static encoder_invalidator_state current_state = ENCODER_STATE_WAITING;
-     current_state = state_table[current_state](input);
-     return current_state;
-}
 
 IRAM_ATTR void gpio_encoder_isr_routine(void *arg) {
-    encoder_invalidator_state state =
-        encoder_invalidator_process((encoder_invalidator_state)arg);
-
-    switch (state) {
-        case ENCODER_STATE_UP:
-            //TODO implement
-            break;
-        case ENCODER_STATE_DOWN:
-            //TODO implement
+    encoder_fsm_output direction = encoder_fms_process(gpio_get_level(ENCODER_A_PIN), gpio_get_level(ENCODER_B_PIN));
+    switch (direction) {
+        case encoder_direction_clockwise:
+        case encoder_direction_counterclockwise:
+            timer_soft_irq(process_detected_state, NULL, (uint32_t)direction); 
             break;
         default:
             break;
@@ -102,25 +77,32 @@ IRAM_ATTR void gpio_encoder_isr_routine(void *arg) {
 }
 
 IRAM_ATTR void gpio_encoder_push_isr_routine(void *arg) {
-    //TODO implement
+    bool is_pressed = !gpio_get_level(ENCODER_PUSH_PIN);
+    if (is_pressed)
+        timer_soft_irq(process_button_click, NULL, 0); 
 }
 
 error_status_t encoder_init(void) {
-    uint64_t pin_mask = ((1ULL << ENCODER_PUSH_PIN)  |
-                         (1ULL << ENCODER_B_PIN) |
-                         (1ULL << ENCODER_A_PIN));
- 
-    gpio_config_t io_conf = {
+    uint64_t pin_mask_isr = ((1ULL << ENCODER_PUSH_PIN)  |
+                             (1ULL << ENCODER_B_PIN)     |
+                             (1ULL << ENCODER_A_PIN));
+
+    gpio_reset_pin(ENCODER_A_PIN);
+	gpio_reset_pin(ENCODER_B_PIN);
+
+    gpio_config_t io_conf_isr = {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = 1,
         .pull_down_en = 0,
-        .intr_type = GPIO_INTR_NEGEDGE,
-        .pin_bit_mask = pin_mask
+        .intr_type = GPIO_INTR_ANYEDGE,
+        .pin_bit_mask = pin_mask_isr
     };
-    gpio_config(&io_conf);
+
+    gpio_config(&io_conf_isr);
     gpio_isr_handler_add(ENCODER_PUSH_PIN, gpio_encoder_push_isr_routine, NULL);
-    gpio_isr_handler_add(ENCODER_A_PIN, gpio_encoder_isr_routine, (void*)ENCODER_STATE_A_RECEIVED);
-    gpio_isr_handler_add(ENCODER_B_PIN, gpio_encoder_isr_routine, (void*)ENCODER_STATE_B_RECEIVED);
+    gpio_isr_handler_add(ENCODER_A_PIN, gpio_encoder_isr_routine, NULL);
+    gpio_isr_handler_add(ENCODER_B_PIN, gpio_encoder_isr_routine, NULL);
+
     return error_any;
 }
 

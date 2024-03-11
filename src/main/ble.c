@@ -29,17 +29,19 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "ble.h"
 #include "nimble/nimble_port.h"
+#include "nimble/ble.h"
 #include "nimble/nimble_port_freertos.h"
 
 #include "utilities/logger.h"
 #include "utilities/addons.h"
+#include "utilities/scheduler.h"
 
 _Static_assert(1 == CONFIG_BT_NIMBLE_MAX_CONNECTIONS, "Component tested with only one concurrent connection!");
 #define BLE_CONN_HANDLE_INVALID   0xFFFF
 
 static const char* device_name = "ThermoPlate";
-static uint16_t conn_handle = BLE_CONN_HANDLE_INVALID;
-static uint8_t ble_addr_type;
+static ble_context* ble_ctx = NULL;
+
 static error_status_t ble_advertise (void);
 static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt* ctxt, void* arg);
@@ -80,13 +82,20 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         { {
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_TEMPERATURE_READ_UUID)),
               .access_cb = generic_read_access,
-              .val_handle = &handle_uuid_mapping[0].val_handle,
+              .val_handle = (uint16_t*)&handle_uuid_mapping[0].val_handle,
               .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_MODE_WRITE_UUID)),
               .access_cb = generic_write_access,
               .flags     = BLE_GATT_CHR_F_WRITE,
-
+          },{
+              .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_CONST_TEMPERATURE_WRITE_UUID)),
+              .access_cb = generic_write_access,
+              .flags     = BLE_GATT_CHR_F_WRITE,
+          },{
+              .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_CONST_TIME_WRITE_UUID)),
+              .access_cb = generic_write_access,
+              .flags     = BLE_GATT_CHR_F_WRITE,
           },{
               0, /* No more characteristics in this service */
           }, }
@@ -96,11 +105,6 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         0, /* No more services */
     },
 };
-
-#define READ_WRITE_CALLBACKS_COUNT 8U
-static read_observer_descriptor_t read_observers[READ_WRITE_CALLBACKS_COUNT];
-static write_observer_descriptor_t write_observers[READ_WRITE_CALLBACKS_COUNT];
-
 
 simplified_uuid_t ble_get_simplified_uuid(const ble_uuid_t* full_uuid) {
     ble_uuid_any_t uuid_full_casted = *(ble_uuid_any_t*)full_uuid;
@@ -123,22 +127,22 @@ simplified_uuid_t ble_get_simplified_uuid(const ble_uuid_t* full_uuid) {
 }
 
 error_status_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor) {
-    for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
-        if (write_observers[i].observer != NULL)
+    for (unsigned i = 0; i < BLE_READ_WRITE_CALLBACKS_COUNT; i++) {
+        if (ble_ctx->write_observers[i].observer != NULL)
             continue;
 
-        write_observers[i] = observer_descriptor;
+        ble_ctx->write_observers[i] = observer_descriptor;
         return error_any;
     }
     return error_collection_full;
 }
 
 error_status_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor) {
-    for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
-        if (read_observers[i].observer != NULL)
+    for (unsigned i = 0; i < BLE_READ_WRITE_CALLBACKS_COUNT; i++) {
+        if (ble_ctx->read_observers[i].observer != NULL)
             continue;
 
-        read_observers[i] = observer_descriptor;
+        ble_ctx->read_observers[i] = observer_descriptor;
         return error_any;
     }
     return error_collection_full;
@@ -167,17 +171,17 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
                 /* Connection failed; resume advertising */
                 ret = ble_advertise();
             }
-            if (conn_handle != BLE_CONN_HANDLE_INVALID) {
+            if (ble_ctx->conn_handle != BLE_CONN_HANDLE_INVALID) {
                 ret = (0 == ble_gap_terminate(event->connect.conn_handle, BLE_ERR_CONN_PARMS)) ?
                     error_any : error_library_error;
                 break;
             }
-            conn_handle = event->connect.conn_handle;
+            ble_ctx->conn_handle = event->connect.conn_handle;
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
             log_info("disconnect; reason=%d\n", event->disconnect.reason);
-            conn_handle = BLE_CONN_HANDLE_INVALID; //TODO - some mutex required?
+            ble_ctx->conn_handle = BLE_CONN_HANDLE_INVALID; //TODO - some mutex required?
             /* Connection terminated; resume advertising */
             ret = ble_advertise();
             break;
@@ -188,7 +192,7 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
             break;
 
         case BLE_GAP_EVENT_SUBSCRIBE:
-            ESP_LOGI("BLE_GAP_SUBSCRIBE_EVENT", "conn_handle from subscribe=%d", conn_handle);
+            ESP_LOGI("BLE_GAP_SUBSCRIBE_EVENT", "conn_handle from subscribe=%d", ble_ctx->conn_handle);
             break;
 
         case BLE_GAP_EVENT_MTU:
@@ -211,8 +215,8 @@ static error_status_t ble_advertise (void) {
       | BLE_HS_ADV_F_BREDR_UNSUP;
     fields.tx_pwr_lvl_is_present = 1;
     fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
-    fields.name             = (uint8_t*) device_name;
-    fields.name_len         = strlen(device_name);
+    fields.name             = (uint8_t*) ble_ctx->device_name;
+    fields.name_len         = strlen(ble_ctx->device_name);
     fields.name_is_complete = 1;
     
     error_status_t ret = error_any;
@@ -221,7 +225,7 @@ static error_status_t ble_advertise (void) {
             ret = action_already_requested;
             goto error_handler;
         case BLE_HS_EMSGSIZE:
-            ret = memory_constraint_exceeded; 
+            ret = error_memory_constraint_exceeded; 
             goto error_handler;
         default:
             break;
@@ -231,12 +235,12 @@ static error_status_t ble_advertise (void) {
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-    if (0 != ble_gap_adv_start(ble_addr_type, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL)) {
+    if (0 != ble_gap_adv_start(BLE_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL)) {
         ret = error_library_error;
         goto error_handler;
     }
-
     return error_any;
+
 error_handler:
     error_print_message(ret);
     return ret;
@@ -244,7 +248,7 @@ error_handler:
 }
 
 error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len) {
-    if (BLE_CONN_HANDLE_INVALID == conn_handle)
+    if (BLE_CONN_HANDLE_INVALID == ble_ctx->conn_handle)
         return error_resource_unavailable;
     struct os_mbuf *om = ble_hs_mbuf_from_flat(buff, len);
     uint16_t handle = 0;
@@ -256,7 +260,7 @@ error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t l
     }
     return error_unknown_resource;
 success:
-    return 0 == ble_gatts_notify_custom(conn_handle, handle, om) ? error_any : error_library_error;
+    return 0 == ble_gatts_notify_custom(ble_ctx->conn_handle, handle, om) ? error_any : error_library_error;
 }
 
 static bool is_uuid_in_filter(const ble_uuid_t* uuid, simplified_uuid_t const* filter, unsigned count) {
@@ -268,20 +272,29 @@ static bool is_uuid_in_filter(const ble_uuid_t* uuid, simplified_uuid_t const* f
     return false;
 }
 
+static bool is_valid_read_descriptor(read_buff_descriptor_t* buff_desc) {
+    if (buff_desc->buff == NULL || buff_desc->size == 0)
+        return false;
+    return true;
+}
+
 static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
   struct ble_gatt_access_ctxt* ctxt, void* arg) {
     if (BLE_CONN_HANDLE_INVALID == conn_handle)
-        return error_resource_unavailable;
+        return BLE_ATT_ERR_INVALID_HANDLE;
 
     const ble_uuid_t* ctx_uuid = ctxt->chr->uuid;
-    for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
-        if(!is_uuid_in_filter(ctx_uuid, read_observers[i].uuid_filter, read_observers[i].filter_count))
+    for (unsigned i = 0; i < BLE_READ_WRITE_CALLBACKS_COUNT; i++) {
+        if(!is_uuid_in_filter(ctx_uuid, ble_ctx->read_observers[i].uuid_filter, ble_ctx->read_observers[i].filter_count))
             continue;
 
-        size_t payload_size = 0;
-        uint8_t* buffer = NULL;
-        read_observers[i].observer(ble_get_simplified_uuid(ctx_uuid), &buffer, &payload_size);
-        if (0 != os_mbuf_append(ctxt->om, buffer, payload_size))
+        read_buff_descriptor_t read_desc =
+            ble_ctx->read_observers[i].observer(ble_get_simplified_uuid(ctx_uuid));
+
+        if (!is_valid_read_descriptor(&read_desc))
+            return BLE_ATT_ERR_READ_NOT_PERMITTED;
+
+        if (0 != os_mbuf_append(ctxt->om, read_desc.buff, read_desc.size))
             return BLE_ATT_ERR_INSUFFICIENT_RES;
     }
     return 0;
@@ -293,32 +306,24 @@ static size_t mbuf_size(struct os_mbuf *om) {
     return os_mbuf_len(om);
 }
 
-static inline bool is_vla_capable(size_t size) {
-    const size_t max_vla_size = 256;
-    if (size <= max_vla_size)
-        return true;
-    return false;
-}
-
 static int generic_write_access(uint16_t conn_handle, uint16_t attr_handle,
   struct ble_gatt_access_ctxt* ctxt, void* arg) {
     if (BLE_CONN_HANDLE_INVALID == conn_handle)
-        return error_resource_unavailable;
+        return BLE_ATT_ERR_INVALID_HANDLE;
 
     const ble_uuid_t* ctx_uuid = ctxt->chr->uuid;
-    for (unsigned i = 0; i < READ_WRITE_CALLBACKS_COUNT; i++) {
-        if(!is_uuid_in_filter(ctx_uuid, write_observers[i].uuid_filter, write_observers[i].filter_count))
+    for (unsigned i = 0; i < BLE_READ_WRITE_CALLBACKS_COUNT; i++) {
+        if(!is_uuid_in_filter(ctx_uuid, ble_ctx->write_observers[i].uuid_filter, ble_ctx->write_observers[i].filter_count))
             continue;
 
         size_t size = mbuf_size(ctxt->om);
-        if (!is_vla_capable(size))
+        if (BLE_ACL_MAX_PKT_SIZE < size)
             return BLE_ATT_ERR_INSUFFICIENT_RES;
         
-        uint8_t buffer[size];
-        if (0 != os_mbuf_copydata(ctxt->om, 0, size, buffer))
+        if (0 != os_mbuf_copydata(ctxt->om, 0, size, ble_ctx->data_buffer))
             return BLE_ATT_ERR_INSUFFICIENT_RES;
 
-        write_observers[i].observer(ble_get_simplified_uuid(ctx_uuid),buffer, size);
+        ble_ctx->write_observers[i].observer(ble_get_simplified_uuid(ctx_uuid), ble_ctx->data_buffer, size);
     }
     return 0;
 }
@@ -377,7 +382,7 @@ static int gatt_svr_init (void) {
     if (ble_gatts_add_svcs(gatt_svr_svcs) != 0)
         goto lib_error;
 
-    if(ble_svc_gap_device_name_set(device_name) != 0)
+    if(ble_svc_gap_device_name_set(ble_ctx->device_name) != 0)
         goto lib_error;
 
     return error_any;
@@ -387,12 +392,29 @@ lib_error:
     return error_library_error;
 }
 
-error_status_t ble_init_nimble(void) {
+static error_status_t setup_context(ble_context_allocator ctx_allocator) {
+    ble_ctx = ctx_allocator();
+    if (NULL == ble_ctx)
+        return error_memory_constraint_exceeded;
+
+    memset(ble_ctx, 0, sizeof(*ble_ctx));
+    ble_ctx->device_name = device_name;
+    ble_ctx->conn_handle = BLE_CONN_HANDLE_INVALID;
+    return error_any;
+}
+
+error_status_t ble_init_nimble(ble_context_allocator ctx_allocator) {
+    if (NULL == ctx_allocator)
+        return error_invalid_input_parameter;
+    
+    error_status_t ctx_status = error_any;
+    if (error_any != (ctx_status = setup_context(ctx_allocator)))
+        return ctx_status;
+
     esp_err_t ret = nimble_port_init();
     if (ret != ESP_OK)
         goto lib_error;
 
-    /* Initialize the NimBLE host configuration */
     ble_hs_cfg.sync_cb  = ble_on_sync;
     ble_hs_cfg.reset_cb = ble_on_reset;
     ble_hs_cfg.gatts_register_cb = gatt_svr_register_cb;
@@ -400,7 +422,6 @@ error_status_t ble_init_nimble(void) {
     if (gatt_svr_init() != error_any)
         goto lib_error;
 
-    /* Start the task */
     nimble_port_freertos_init(ble_host_task);
     return error_any;
 

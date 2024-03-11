@@ -19,8 +19,7 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * https://www.FreeRTOS.org
- * https://github.com/FreeRTOS
+ * https://www.FreeRTOS.org https://github.com/FreeRTOS
  *
  */
 #ifndef FREERTOS_CONFIG_H
@@ -111,7 +110,7 @@ void vConfigureTimerForRunTimeStats( void );    /* Prototype of function that in
 #define INCLUDE_xTaskGetHandle                    1
 #define INCLUDE_eTaskGetState                     1
 #define INCLUDE_xSemaphoreGetMutexHolder          1
-#define INCLUDE_xTimerPendFunctionCall            0
+#define INCLUDE_xTimerPendFunctionCall            1
 #define INCLUDE_xTaskAbortDelay                   1
 
 #define configINCLUDE_MESSAGE_BUFFER_AMP_DEMO     0

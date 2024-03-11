@@ -18,31 +18,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#ifndef _MAIN_HEAT_CONTROLLER_
-#define _MAIN_HEAT_CONTROLLER_
+#ifndef _MAIN_HEAT_CONTROLLER_INTERFACE_
+#define _MAIN_HEAT_CONTROLLER_INTERFACE_
 
 #include "utilities/error.h"
-
 typedef unsigned celcius;
-
 typedef enum {
-    heating_state_idle,
-    heating_state_constant,
-    heating_state_multi_stage,
-    heating_state_last
-} heating_mode_state;
+    heating_request_constant,
+    heating_request_jedec,
+    heating_request_last 
+} heating_request_type;
 
-typedef enum {
-    multistage_heating_jedec,
-    multistage_heating_last
-} multistage_heating_type;
+typedef struct {
+    heating_request_type type;
+    struct {
+        celcius const_temperature;
+        unsigned duration; 
+    } constant;
+} heater_request;
 
-//TODO should have some status passed to input
-typedef void (*heat_completion_marker)(void);
-error_status_t heat_controller_start_multistage_heating_mode(multistage_heating_type type, heat_completion_marker completion_routine);
-error_status_t heat_controller_start_constant_heating(celcius temperature, unsigned duration, heat_completion_marker completion_routine);
-error_status_t heat_controller_init(void);
-unsigned heat_controller_get_temperature(void);
-error_status_t heat_controller_cancel_action(void);
+error_status_t heat_controller_interface_init(void);
 
 #endif

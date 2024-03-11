@@ -24,14 +24,22 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "spi.h"
+#include "encoder.h"
 #include "utilities/scheduler.h"
 #include "utilities/error.h"
 
 #include "ble.h"
 #include "lcd.h"
+#include "menu.h"
 #include "device_info.h"
 #include "heat_controller.h"
+#include "heat_controller_interface.h"
 #include "utilities/timer.h"
+
+static ble_context* alloc_ble_mem(void) {
+    ble_context* ctx = malloc(sizeof(ble_context));
+    return ctx;
+}
 
 void app_main (void) {
     scheduler_init();
@@ -45,12 +53,14 @@ void app_main (void) {
     ESP_ERROR_CHECK(ret);
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
-    FATAL_IF_FAIL(ble_init_nimble());
+    FATAL_IF_FAIL(ble_init_nimble(alloc_ble_mem));
     FATAL_IF_FAIL(device_info_init());
     FATAL_IF_FAIL(spi_init());
     FATAL_IF_FAIL(heat_controller_init());
+    FATAL_IF_FAIL(heat_controller_interface_init());
     ldc_init();
-
+    encoder_init();
+    menu_init();
     while(true) {
         scheduler_run();
     }
