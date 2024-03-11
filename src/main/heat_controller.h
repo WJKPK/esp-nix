@@ -23,6 +23,18 @@
 
 #include "utilities/error.h"
 
+typedef enum {
+    HeatingModeConst,
+    HeatingModeJedec,
+    HeatingModeLast 
+} heating_mode_type;
+
+
+typedef struct {
+    heating_mode_type type;
+    unsigned const_temperature;
+} heater_request;
+
 error_status_t heat_controller_init(void);
 
 #endif

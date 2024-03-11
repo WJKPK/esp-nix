@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 WJKPK
+ * Copyright 2024 WJKPK
  *  
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef _UTILITIES_CONFIGS_SCHEDULER_TYPES_
-#define _UTILITIES_CONFIGS_SCHEDULER_TYPES_
+#ifndef _MAIN_MENU_
+#define _MAIN_MENU_
 
-#include "lcd.h"
-#include "encoder.h"
+void menu_init(void);
 
-#endif  // _UTILITIES_CONFIGS_SCHEDULER_TYPES_
+#endif // _MAIN_MENU_
+

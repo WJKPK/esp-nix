@@ -165,3 +165,13 @@ error_status_t timer_init(void) {
     return error_any;
 }
 
+error_status_t timer_soft_irq(soft_irq_routine routine, void* arg, uint32_t uarg) {
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    BaseType_t result = xTimerPendFunctionCallFromISR(routine,
+        arg,
+        uarg,
+        &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    return result == pdTRUE ? error_any : error_collection_full;
+}
+

@@ -36,25 +36,30 @@ typedef enum {
 } custom_symbol;
 
 typedef struct {
-    struct {
-        unsigned start_position;
-        char content[LCD_MAX_LINE_LEN];
-    } text;
-    struct {
-        unsigned start_position;
+    enum {
+        lcd_command_print_symbol,
+        lcd_command_print_string,
+        lcd_command_clean
+    } commanand;
+    unsigned line;
+    unsigned position;
+    union {
+        char text[LCD_MAX_LINE_LEN];
         custom_symbol symbol;
-    } symbol;
-} lcd_line;
-
-typedef struct {
-    lcd_line line_descriptors[LCD_MAX_LINE_NUMBER];
-} lcd_descriptor;
-
-#define LCD_EMPTY_LINE ((lcd_line){ .text.content = "", .symbol.symbol = kCustomSymbolLast})
-#define LCD_EMPTY_SCREEN ((lcd_descriptor){ .line_descriptors[0] = LCD_EMPTY_LINE, .line_descriptors[1] = LCD_EMPTY_LINE })
+    };
+} lcd_request;
 
 error_status_t ldc_init(void);
-error_status_t lcd_send_request(lcd_descriptor* lcd_descriptor);
+error_status_t lcd_send_clean(void);
+
+error_status_t lcd_send_request_custom(unsigned line, unsigned position, custom_symbol symbol);
+error_status_t lcd_send_request_string(unsigned line, unsigned position, const char* str, ...);
+#define lcd_send_request(line, position, arg, ...) \
+    _Generic((arg), \
+        custom_symbol: lcd_send_request_custom, \
+        const char*: lcd_send_request_string, \
+        char*: lcd_send_request_string \
+    )(line, position, arg, ##__VA_ARGS__)
 
 #endif // _MAIN_LCD_
 

@@ -31,4 +31,7 @@ typedef struct {
   };
 } CustomStruct;
 
+#include "lcd.h"
+#include "encoder.h"
+
 #endif  // __SCHEDULER_CUSTOM_TYPES__

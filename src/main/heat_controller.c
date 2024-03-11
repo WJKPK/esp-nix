@@ -1,8 +1,7 @@
 /*
  * Copyright 2023 WJKPK
  *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file distributed with this work for additional information
+ * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
@@ -21,7 +20,6 @@
 #include "utilities/timer.h"
 
 #define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_DEBUG
-
 #include "utilities/logger.h"
 
 #include "heat_controller.h"
@@ -39,6 +37,8 @@ typedef unsigned celcius;
 const unsigned invalid_stage_index = UINT_MAX;
 
 static uint16_t last_readout = 0;
+static celcius const_temperature = 0;
+static bool const_temperature_used = true;
 
 error_status_t setup_toggler_pin(void) {
     const unsigned toggler_pin = GPIO_NUM_8;
@@ -56,22 +56,21 @@ static error_status_t set_toggler_level(bool on) {
     ESP_OK == gpio_set_level(GPIO_NUM_8, on) ? ({ return error_any; }) : ({ return error_resource_unavailable; });
 }
 
-void on_temperature_read(simplified_uuid_t uuid, uint8_t** buff, size_t* size) {
+static read_buff_descriptor_t on_temperature_read(simplified_uuid_t uuid) {
+    read_buff_descriptor_t buff_descriptor = {
+        .buff = &last_readout,
+        .size = sizeof(last_readout),
+    };
     switch (uuid) {
         case HEATER_TEMPERATURE_READ_UUID: {
-            *buff = (uint8_t*) &last_readout;
-            *size = sizeof(last_readout);
+            return buff_descriptor;
             break;
         }
         default:
             break;
     }
+    return EMPTY_READ_BUFF;
 }
-
-typedef enum {
-    HeatingModeJedec,
-    HeatingModeLast 
-} heating_mode_type;
 
 typedef struct {
     struct {
@@ -145,7 +144,25 @@ void start_given_heating_mode(heating_mode_descriptor* heating_mode) {
     timer_register_callback(heat_controller_tick, execute_heating_mode_periodic, heating_mode);
 }
 
-void on_heater_mode_write(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
+static bool mode_should_be_dropped(heating_mode_type type) {
+    return (type == HeatingModeConst && const_temperature_used);
+}
+
+static void mark_const_as_used(heating_mode_type type) {
+    if (type == HeatingModeConst)
+        const_temperature_used = true;
+}
+
+static void on_heater_mode_write(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
+    heating_mode_type* mode = (heating_mode_type*)buff;
+    assert(*mode < HeatingModeLast);
+    static temperature_stage const_mode[] = {{
+        .time = {
+            .from = 0,
+            .to = 100,
+        },
+        .temperature = 25 
+    }};
     static temperature_stage jedec[] = {{
         .time = {
             .from = 0,
@@ -166,12 +183,31 @@ void on_heater_mode_write(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
         .temperature = 30
     }};
 
+    const_mode[0].temperature = const_temperature;
     static heating_mode_descriptor heating_mode[HeatingModeLast] = {
+        {.stages = const_mode, .count = COUNT_OF(const_mode)},
         {.stages = jedec, .count = COUNT_OF(jedec)}
     };
     switch (uuid) {
         case HEATER_MODE_WRITE_UUID:
-            start_given_heating_mode(&heating_mode[HeatingModeJedec]);
+            if (mode_should_be_dropped(*mode))
+                return;
+            mark_const_as_used(*mode);
+            start_given_heating_mode(&heating_mode[*mode]);
+            break;
+        default:
+            break;
+    }
+}
+
+static void on_const_temperature_write(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
+    switch (uuid) {
+        case HEATER_CONST_TEMPERATURE_WRITE_UUID:
+            log_debug("Write to uuid: %u - size: %zu, buff %"PRIu32"", uuid, size, *(((uint32_t*)buff)));
+            if (size != sizeof(const_temperature))
+                return;
+            const_temperature = *((celcius*)buff);
+            const_temperature_used = false;
             break;
         default:
             break;
@@ -193,9 +229,17 @@ error_status_t heat_controller_init(void) {
         .filter_count = 1,
     };
 
+    static const simplified_uuid_t write_const_temp_uuid_filter[]   = { HEATER_CONST_TEMPERATURE_WRITE_UUID };
+    write_observer_descriptor_t write_const_temp_observer_descriptor = {
+        .observer = on_const_temperature_write,
+        .uuid_filter = write_const_temp_uuid_filter,
+        .filter_count = 1,
+    };
+
     return error_is_success(setup_toggler_pin())
         && error_is_success(spi_read(SpiDeviceThermocoupleAfe, &last_readout, sizeof(last_readout)))
         && error_is_success(ble_add_read_observer(read_observer_descriptor))
+        && error_is_success(ble_add_write_observer(write_const_temp_observer_descriptor))
         && error_is_success(ble_add_write_observer(write_observer_descriptor)) ? error_any : error_library_error;
 }
 

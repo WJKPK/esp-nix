@@ -26,11 +26,11 @@
       "locked": {
         "lastModified": 1,
         "narHash": "sha256-YpWhee9rRNdr46g/1UbP/A169X6gb1ZhKsI/KY6K+vU=",
-        "path": "/nix/store/0b614rg9v2586winsslzm5d13igl5wwi-source/tests/mockgen",
+        "path": "/nix/store/lk3r0jxqa5znwc7f2n5rvgrfy09c0r1w-source/tests/mockgen",
         "type": "path"
       },
       "original": {
-        "path": "/nix/store/0b614rg9v2586winsslzm5d13igl5wwi-source/tests/mockgen",
+        "path": "/nix/store/lk3r0jxqa5znwc7f2n5rvgrfy09c0r1w-source/tests/mockgen",
         "type": "path"
       }
     },

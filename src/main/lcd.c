@@ -24,6 +24,7 @@
 #include "lcd.h"
 #include <rom/ets_sys.h>
 #include <driver/gpio.h>
+#include <stdarg.h>
 #include <string.h>
 #include "FreeRTOS.h"
 #include "timers.h"
@@ -80,23 +81,77 @@ static bool is_symbol(custom_symbol symbol) {
    return symbol != kCustomSymbolLast;
 }
 
-static void print_screen(lcd_descriptor screen) {
-    for (unsigned i = 0; i < COUNT_OF(screen.line_descriptors); i++) {
-        lcd_line line = screen.line_descriptors[i];
-        if (is_string(line.text.content)) {
-            lcd16x2_setCursor(i, line.text.start_position);
-            lcd16x2_printf("%s", line.text.content);
-        }
-        if (is_symbol(line.symbol.symbol)) {
-            lcd16x2_setCursor(i, line.symbol.start_position);
-            lcd16x2_writeCustom(line.symbol.symbol);
-        }
+error_status_t lcd_send_request_custom(unsigned line, unsigned position, custom_symbol symbol) {
+    lcd_request request = {
+        .commanand = lcd_command_print_symbol,
+        .position = position,
+        .line = line,
+        .symbol = symbol
+    };
+
+    if (!scheduler_enqueue(SchedulerQueueLcd, &request))
+        return error_collection_full;
+
+    return error_any;
+}
+
+error_status_t lcd_send_request_string(unsigned line, unsigned position, const char* str, ...) {
+    lcd_request request = {
+        .commanand = lcd_command_print_string,
+        .position = position,
+        .line = line,
+    };
+
+    va_list args;
+    va_start(args, str);
+    int result = vsnprintf(request.text, LCD_MAX_LINE_LEN, str, args);
+    va_end(args);
+    
+    if (result >= LCD_MAX_LINE_LEN || result < 0)
+        return error_resource_unavailable;
+
+    if (!scheduler_enqueue(SchedulerQueueLcd, &request))
+        return error_collection_full;
+
+    return error_any;
+}
+
+error_status_t lcd_send_clean(void) {
+    lcd_request request = {
+        .commanand = lcd_command_clean
+    };
+
+    if (!scheduler_enqueue(SchedulerQueueLcd, &request))
+        return error_collection_full;
+
+    return error_any;
+
+}
+
+static void print_screen(lcd_request* request) {
+    switch(request->commanand) {
+        case lcd_command_clean:
+            lcd16x2_clear();
+            break;
+
+        case lcd_command_print_symbol:
+            lcd16x2_setCursor(request->line, request->position);
+            lcd16x2_writeCustom(request->symbol);
+            break;
+
+        case lcd_command_print_string:
+            lcd16x2_setCursor(request->line, request->position);
+            lcd16x2_printf("%s", request->text);
+            break;
+
+        default:
+            break;
     }
 }
 
-static void on_lcd_descriptor(void* data) {
-    lcd_descriptor* desc = data;
-    print_screen(*desc);
+static void on_lcd_request(void* data) {
+    lcd_request* lcd_req = data;
+    print_screen(lcd_req);
 }
 
 error_status_t ldc_init(void) {
@@ -156,44 +211,17 @@ error_status_t ldc_init(void) {
       0b00000
     };
 
-    if (false == lcd16x2_createChar(kCustomSymbolHeart, heart)
+    if (false == (lcd16x2_createChar(kCustomSymbolHeart, heart)
         && lcd16x2_createChar(kCustomSymbolPlateProgram, plate_program)
         && lcd16x2_createChar(kCustomSymbolArrowUp, arrow_up)
-        && lcd16x2_createChar(kCustomSymbolArrowDown, arrow_down))
+        && lcd16x2_createChar(kCustomSymbolArrowDown, arrow_down)))
         return error_unknown_resource;
 
-    lcd16x2_clear();
     lcd16x2_cursorShow(false);
 
-    lcd_descriptor start_lcd = 
-    {
-        .line_descriptors[0] = {
-            .text = {
-                .content = "ThermoPlate",
-                .start_position = 2,
-            },
-            .symbol = {
-                .symbol = kCustomSymbolArrowUp,
-                .start_position = 15,
-            },
-        },
-        .line_descriptors[1] = LCD_EMPTY_LINE
-    };
-    start_lcd.line_descriptors[1].symbol.symbol = kCustomSymbolArrowDown;
-    start_lcd.line_descriptors[1].symbol.start_position = 15;
-    print_screen(start_lcd);
-    if (!scheduler_subscribe(SchedulerQueueLcd, on_lcd_descriptor))
+    if (!scheduler_subscribe(SchedulerQueueLcd, on_lcd_request))
         return error_collection_full;
     return error_any;
 }
 
-error_status_t lcd_send_request(lcd_descriptor* lcd_descriptor) {
-    if (lcd_descriptor == NULL)
-        return error_null;
-
-    if (!scheduler_enqueue(SchedulerQueueLcd, lcd_descriptor))
-        return error_collection_full;
-
-    return error_any;
-}
 

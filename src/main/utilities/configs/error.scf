@@ -1,5 +1,5 @@
 DEFINE_ERROR(error_any, "Action successed")
-DEFINE_ERROR(memory_constraint_exceeded, "Requested memory with invalid parameters")
+DEFINE_ERROR(error_memory_constraint_exceeded, "Requested memory with invalid parameters")
 DEFINE_ERROR(error_unknown_resource, "Requested unknown resource")
 DEFINE_ERROR(error_null, "Invalid NULL pointer")
 DEFINE_ERROR(error_timeout, "Timeout")
