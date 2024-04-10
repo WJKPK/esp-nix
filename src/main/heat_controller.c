@@ -1,12 +1,14 @@
 /*
- * Copyright 2023 WJKPK
+ * Copyright 2024 WJKPK
  *
- * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *  http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
@@ -79,7 +81,7 @@ static temperature_stage jedec[] = {{
     }
 };
 
-static heating_mode_descriptor heating_mode[multistage_heating_last] = {
+static heating_mode_descriptor heating_mode[MULTISTAGE_HEATING_LAST] = {
     {.stages = jedec, .stage_count = COUNT_OF(jedec)}
 };
 
@@ -92,11 +94,11 @@ error_status_t setup_toggler_pin(void) {
         .intr_type = GPIO_INTR_DISABLE,
     };
     ESP_OK == gpio_config(&toggler_config) ?
-        ({ return error_any; }) : ({ return error_unknown_resource; });
+        ({ return ERROR_ANY; }) : ({ return ERROR_UNKNOWN_RESOURCE; });
 }
 
 static error_status_t set_toggler_level(bool on) {
-    ESP_OK == gpio_set_level(GPIO_NUM_8, on) ? ({ return error_any; }) : ({ return error_resource_unavailable; });
+    ESP_OK == gpio_set_level(GPIO_NUM_8, on) ? ({ return ERROR_ANY; }) : ({ return ERROR_RESOURCE_UNAVAILABLE; });
 }
 
 static void turn_off_heater(void* args) {
@@ -125,17 +127,17 @@ celcius get_actual_setpoint(heating_mode_descriptor* heating_mode) {
 }
 
 static error_status_t execute_heating_mode(heating_mode_descriptor* heating_mode, miliseconds actual_period_length) {
-    if (error_any != spi_read(SpiDeviceThermocoupleAfe, &ctx.last_readout, sizeof(ctx.last_readout))) {
+    if (ERROR_ANY != spi_read(SpiDeviceThermocoupleAfe, &ctx.last_readout, sizeof(ctx.last_readout))) {
             set_toggler_level(false);
-            return error_communication_error;
+            return ERROR_COMMUNICATION_ERROR;
     }
     set_actual_stage(heating_mode);
     if (heating_mode->actual_stage == invalid_stage_index) {
         heating_mode->completed_routine();
         heating_mode->completed_routine = NULL;
         heating_mode->actual_stage = 0;
-        ctx.state = heating_state_idle;
-        return error_execution_stopped;
+        ctx.state = HEATING_STATE_IDLE;
+        return ERROR_EXECUTION_STOPPED;
     }
     float percent = get_heating_power_percent((float)ctx.last_readout, get_actual_setpoint(heating_mode));
     log_debug("time: %u, temperature read: %u, power set to: %f%%, stage: %u",
@@ -146,41 +148,41 @@ static error_status_t execute_heating_mode(heating_mode_descriptor* heating_mode
     if (turnoff_timeout)
         oneshot_arm(oneshot_heater_controller, turnoff_timeout, turn_off_heater, NULL);
 
-    return error_any;
+    return ERROR_ANY;
 }
 
 static void execute_heating_mode_periodic(void* heating_mode) {
-    if (ctx.state == heating_state_idle) 
+    if (ctx.state == HEATING_STATE_IDLE) 
         return;
 
     miliseconds time = periodic_get_period(heat_controller_tick);
-    if (error_any != execute_heating_mode(heating_mode, time))
+    if (ERROR_ANY != execute_heating_mode(heating_mode, time))
         timer_unregister_callback(heat_controller_tick, execute_heating_mode_periodic);
 }
 
 error_status_t heat_controller_start_multistage_heating_mode(multistage_heating_type type, heat_completion_marker completion_routine) {
-    if (type >= multistage_heating_last)
-        return error_invalid_input_parameter;
+    if (type >= MULTISTAGE_HEATING_LAST)
+        return ERROR_INVALID_INPUT_PARAMETER;
 
-    if (ctx.state != heating_state_idle) 
-        return error_invalid_state;
+    if (ctx.state != HEATING_STATE_IDLE) 
+        return ERROR_INVALID_STATE;
 
     heating_mode_descriptor* selected_heating_mode = &heating_mode[type];
     selected_heating_mode->duration = 0;
     selected_heating_mode->completed_routine = completion_routine; 
-    ctx.state = heating_state_multi_stage;
+    ctx.state = HEATING_STATE_MULTI_STAGE;
 
     miliseconds time = periodic_get_expire(heat_controller_tick);
-    error_status_t result = error_any;
-    if (error_any != (result = execute_heating_mode(selected_heating_mode, time)))
+    error_status_t result = ERROR_ANY;
+    if (ERROR_ANY != (result = execute_heating_mode(selected_heating_mode, time)))
         return result;
 
     return timer_register_callback(heat_controller_tick, execute_heating_mode_periodic, selected_heating_mode);
 }
 
 error_status_t heat_controller_start_constant_heating(celcius temperature, unsigned duration, heat_completion_marker completion_routine) {
-    if (ctx.state != heating_state_idle) 
-        return error_invalid_state;
+    if (ctx.state != HEATING_STATE_IDLE) 
+        return ERROR_INVALID_STATE;
 
     static temperature_stage constant = {
         .time = {
@@ -196,10 +198,10 @@ error_status_t heat_controller_start_constant_heating(celcius temperature, unsig
     constant_heating_mode.duration = 0;
     constant_heating_mode.completed_routine = completion_routine;
 
-    ctx.state = heating_state_constant;
+    ctx.state = HEATING_STATE_CONSTANT;
     miliseconds time = periodic_get_expire(heat_controller_tick);
-    error_status_t result = error_any;
-    if (error_any != (result = execute_heating_mode(&constant_heating_mode, time)))
+    error_status_t result = ERROR_ANY;
+    if (ERROR_ANY != (result = execute_heating_mode(&constant_heating_mode, time)))
         return result;
 
     return timer_register_callback(heat_controller_tick, execute_heating_mode_periodic, &constant_heating_mode);
@@ -207,17 +209,17 @@ error_status_t heat_controller_start_constant_heating(celcius temperature, unsig
 
 error_status_t heat_controller_cancel_action(void) {
     error_status_t status = timer_unregister_callback(heat_controller_tick, execute_heating_mode_periodic);
-    if (status != error_any)
+    if (status != ERROR_ANY)
         return status;
 
-    ctx.state = heating_state_idle;
+    ctx.state = HEATING_STATE_IDLE;
     set_toggler_level(false);
     return status;
 }
 
 error_status_t heat_controller_init(void) {
-    error_status_t result = error_any;
-    if (error_any != (result = setup_toggler_pin()))
+    error_status_t result = ERROR_ANY;
+    if (ERROR_ANY != (result = setup_toggler_pin()))
         return result;
 
     return spi_read(SpiDeviceThermocoupleAfe, &ctx.last_readout, sizeof(ctx.last_readout));

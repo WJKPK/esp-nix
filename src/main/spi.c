@@ -46,7 +46,7 @@ error_status_t spi_init(void) {
         .max_transfer_sz = 32,
     };
     if (ESP_OK != spi_bus_initialize(SPI_HOST, &buscfg, SPI_DMA_CH_AUTO)) {
-        return error_resource_unavailable;
+        return ERROR_RESOURCE_UNAVAILABLE;
     }
     struct {
         unsigned pin;
@@ -66,13 +66,13 @@ error_status_t spi_init(void) {
             goto error;
         }
     }
-    return error_any;
+    return ERROR_ANY;
 
 error:
     for (spi_dev_t dev = SpiDeviceThermocoupleAfe; dev < SpiDeviceLast; dev++) {
         spi_handle[dev] != NULL ? ({spi_bus_remove_device(spi_handle[dev]);}) : ({});
     }
-    return error_resource_unavailable;
+    return ERROR_RESOURCE_UNAVAILABLE;
 }
 
 typedef bool(*spi_readout_conventer_t)(uint8_t*, size_t, uint16_t*);
@@ -99,8 +99,8 @@ error_status_t spi_read(spi_dev_t device, void* out_data, size_t size) {
         .rxlength = conveter_map[device].message_size * CHAR_BIT,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_device_polling_transmit(spi_handle[device], &t) != ESP_OK ? ({return error_communication_error;}) : ({});
+    spi_device_polling_transmit(spi_handle[device], &t) != ESP_OK ? ({return ERROR_COMMUNICATION_ERROR;}) : ({});
     return conveter_map[device].conventer(t.rx_data, conveter_map[device].message_size, out_data) ?
-        error_any : error_conversion_error;
+        ERROR_ANY : ERROR_CONVERSION_ERROR;
 }
 

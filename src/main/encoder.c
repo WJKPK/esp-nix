@@ -41,12 +41,12 @@
 static void process_detected_state(void* args, uint32_t state) {
     encoder_event_type event = ENCODER_EVENT_LAST;
     switch (state) {
-        case encoder_direction_clockwise:
+        case ENCODER_DIRECTION_CLOCKWISE:
             log_info("Up!");
             event = ENCODER_EVENT_UP;
             break;
 
-        case encoder_direction_counterclockwise:
+        case ENCODER_DIRECTION_COUNTERCLOCKWISE:
             event = ENCODER_EVENT_DOWN;
             log_info("Down!");
             break;
@@ -67,8 +67,8 @@ static void process_button_click(void* args, uint32_t state) {
 IRAM_ATTR void gpio_encoder_isr_routine(void *arg) {
     encoder_fsm_output direction = encoder_fms_process(gpio_get_level(ENCODER_A_PIN), gpio_get_level(ENCODER_B_PIN));
     switch (direction) {
-        case encoder_direction_clockwise:
-        case encoder_direction_counterclockwise:
+        case ENCODER_DIRECTION_CLOCKWISE:
+        case ENCODER_DIRECTION_COUNTERCLOCKWISE:
             timer_soft_irq(process_detected_state, NULL, (uint32_t)direction); 
             break;
         default:
@@ -103,6 +103,6 @@ error_status_t encoder_init(void) {
     gpio_isr_handler_add(ENCODER_A_PIN, gpio_encoder_isr_routine, NULL);
     gpio_isr_handler_add(ENCODER_B_PIN, gpio_encoder_isr_routine, NULL);
 
-    return error_any;
+    return ERROR_ANY;
 }
 

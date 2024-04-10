@@ -18,13 +18,13 @@
  * under the License.
  */
 
-#include <stdbool.h>
+#ifndef _MAIN_UTILITIES_TYPES_
+#define _MAIN_UTILITIES_TYPES_
 
-typedef enum {
-   ENCODER_DIRECTION_ANY = 0x0,
-   ENCODER_DIRECTION_CLOCKWISE = 0x10,
-   ENCODER_DIRECTION_COUNTERCLOCKWISE = 0x20,
-} encoder_fsm_output;
+typedef unsigned celcius;
+typedef unsigned seconds;
+typedef unsigned miliseconds;
+typedef unsigned microseconds;
 
-encoder_fsm_output encoder_fms_process(bool a_state, bool b_state);
+#endif  // _MAIN_UTILITIES_TYPES_
 

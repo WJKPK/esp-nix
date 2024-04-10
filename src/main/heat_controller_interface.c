@@ -25,11 +25,11 @@
 #include "utilities/error.h"
 #include "utilities/scheduler.h"
 #include "utilities/addons.h"
+#include "utilities/types.h"
 
 #define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_DEBUG
 #include "utilities/logger.h"
 
-typedef unsigned seconds;
 typedef enum {
     WRITE_ANY = 0x0,
     WRITE_TEMPERATURE = 0x1,
@@ -46,6 +46,7 @@ typedef enum {
 } components_priority;
 
 static struct {
+    heating_request_type request_type;
     struct {
         celcius temperature;
         seconds time;
@@ -58,19 +59,40 @@ static bool is_request_priority_higher_than_proccesed(components_priority incomi
     return incoming_priority > ctx.processed_request;
 }
 
-static read_buff_descriptor_t on_temperature_read(simplified_uuid_t uuid) {
+static read_buff_descriptor_t on_ble_read(simplified_uuid_t uuid) {
     static uint16_t last_readout = 0;
     last_readout = heat_controller_get_temperature();
 
-    read_buff_descriptor_t buff_descriptor = {
+    read_buff_descriptor_t last_readout_descriptor = {
         .buff = &last_readout,
         .size = sizeof(last_readout),
     };
+    read_buff_descriptor_t const_temperature_descriptor = {
+        .buff = &ctx.const_temperature_settings.temperature,
+        .size = sizeof(ctx.const_temperature_settings.temperature)
+    };
+    read_buff_descriptor_t const_time_descriptor = {
+        .buff = &ctx.const_temperature_settings.time,
+        .size = sizeof(ctx.const_temperature_settings.time)
+    };
+    read_buff_descriptor_t mode_descriptor = {
+        .buff = &ctx.request_type,
+        .size = sizeof(ctx.request_type)
+    };
+
     switch (uuid) {
-        case HEATER_TEMPERATURE_READ_UUID: {
-            return buff_descriptor;
-            break;
-        }
+        case HEATER_MODE_WRITE_UUID:
+            return mode_descriptor;
+
+        case HEATER_TEMPERATURE_READ_UUID:
+            return last_readout_descriptor;
+
+        case HEATER_CONST_TEMPERATURE_WRITE_UUID:
+            return const_temperature_descriptor;
+
+        case HEATER_CONST_TIME_WRITE_UUID:
+            return const_time_descriptor;
+
         default:
             break;
     }
@@ -78,9 +100,9 @@ static read_buff_descriptor_t on_temperature_read(simplified_uuid_t uuid) {
 }
 
 static multistage_heating_type map_request_to_multistage_type(heating_request_type type) {
-    multistage_heating_type map[heating_request_last] = {
-       [heating_request_constant] = multistage_heating_last,
-       [heating_request_jedec] = multistage_heating_jedec
+    multistage_heating_type map[HEATING_REQUEST_LAST] = {
+       [HEATING_REQUEST_CONSTANT] = MULTISTAGE_HEATING_LAST,
+       [HEATING_REQUEST_JEDEC] = MULTISTAGE_HEATING_JEDEC
     };
     return map[type];
 }
@@ -97,23 +119,30 @@ static void block_menu_operations(void) {
 }
 
 static error_status_t request_mode_via_ble(heating_request_type mode) {
-    error_status_t result = error_invalid_input_parameter;
+    error_status_t result = ERROR_INVALID_INPUT_PARAMETER;
     block_menu_operations();
     (void)heat_controller_cancel_action();
+    ctx.request_type = mode;
+
     switch (mode) {
-        case heating_request_constant:
+        case HEATING_REQUEST_CONSTANT:
             if (ctx.const_temperature_settings.map != WRITE_BOTH)
-                return error_invalid_state;
+                return ERROR_INVALID_STATE;
 
             result = heat_controller_start_constant_heating(ctx.const_temperature_settings.temperature,
                     ctx.const_temperature_settings.time, unblock_menu_operations);
             break;
-        case heating_request_last:
+        case HEATING_REQUEST_LAST:
             break;
         default:
             result = heat_controller_start_multistage_heating_mode(map_request_to_multistage_type(mode),
                     unblock_menu_operations);
             break;
+    }
+    if (result != ERROR_ANY) {
+        ctx.request_type = HEATING_REQUEST_LAST;
+        error_print_message(result);
+        //TODO what to do?
     }
     return result;
 }
@@ -143,17 +172,18 @@ static void on_ble_request(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
         case HEATER_MODE_WRITE_UUID:
             //TODO: Handle error - write to BLE and display to inform?
             mode = (heating_request_type*)buff;
-            if (*mode >= heating_request_last)
+            if (*mode >= HEATING_REQUEST_LAST)
                 return;
-            if (error_any == request_mode_via_ble(*mode)) {
-                if (*mode == heating_request_constant)
+            if (ERROR_ANY == request_mode_via_ble(*mode)) {
+                if (*mode == HEATING_REQUEST_CONSTANT)
                     reset_const_temperature_settings();
             }
             break;
 
         default:
-            break;
+            return;
     }
+    ble_notify(uuid);
 }
 
 static void inform_about_job_done(void) {
@@ -163,21 +193,27 @@ static void inform_about_job_done(void) {
 }
 
 static void on_menu_request(void* _request) {
-    error_status_t result = error_last;
+    error_status_t result = ERROR_LAST;
     heater_request* request = _request;
 
     if (!is_request_priority_higher_than_proccesed(COMPONENT_MENU_PRIORITY))
         return;
 
     ctx.processed_request = COMPONENT_MENU_PRIORITY;
+    ctx.request_type = request->type;
 
     switch (request->type) {
-        case heating_request_constant:
+        case HEATING_REQUEST_CONSTANT:
+            ctx.const_temperature_settings.temperature = request->constant.const_temperature;
+            ctx.const_temperature_settings.time = request->constant.duration;
+            ble_notify(HEATER_CONST_TEMPERATURE_WRITE_UUID);
+            ble_notify(HEATER_CONST_TIME_WRITE_UUID);
+
             result = heat_controller_start_constant_heating(request->constant.const_temperature,
                     request->constant.duration, inform_about_job_done);
             break;
 
-        case heating_request_jedec:
+        case HEATING_REQUEST_JEDEC:
             result = heat_controller_start_multistage_heating_mode(
                     map_request_to_multistage_type(request->type), inform_about_job_done);
             break;
@@ -185,17 +221,21 @@ static void on_menu_request(void* _request) {
         default:
             break;
     }
-    if (result != error_any) {
-        log_error("Menu heating request failed with status: ");
+    if (result != ERROR_ANY) {
+        ctx.request_type = HEATING_REQUEST_LAST;
         error_print_message(result);
         //TODO what to do?
     }
+    error_status_t status = ble_notify(HEATER_MODE_WRITE_UUID);
+    error_print_message(status);
 }
 
 error_status_t heat_controller_interface_init(void) {
-    static const simplified_uuid_t read_uuid_filter[]   = { HEATER_TEMPERATURE_READ_UUID };
+    ctx.request_type = HEATING_REQUEST_LAST;
+    static const simplified_uuid_t read_uuid_filter[]   = { HEATER_MODE_WRITE_UUID, HEATER_TEMPERATURE_READ_UUID,
+        HEATER_CONST_TEMPERATURE_WRITE_UUID, HEATER_CONST_TIME_WRITE_UUID };
     read_observer_descriptor_t read_observer_descriptor = {
-        .observer     = on_temperature_read,
+        .observer     = on_ble_read,
         .uuid_filter  = read_uuid_filter,
         .filter_count = COUNT_OF(read_uuid_filter),
     };
@@ -209,8 +249,8 @@ error_status_t heat_controller_interface_init(void) {
     };
 
     scheduler_subscribe(SchedulerQueueHeatControlerInterface, on_menu_request);
-    error_status_t result = error_any;
-    if (error_any != (result = ble_add_read_observer(read_observer_descriptor)))
+    error_status_t result = ERROR_ANY;
+    if (ERROR_ANY != (result = ble_add_read_observer(read_observer_descriptor)))
         return result;
 
     return ble_add_write_observer(write_observer_descriptor);

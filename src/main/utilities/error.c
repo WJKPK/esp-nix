@@ -26,7 +26,7 @@ const char* _error_get_name(error_status_t error) {
 
         #include "error.scf"
 
-        case error_last:
+        case ERROR_LAST:
             break;
     }
     return NULL;

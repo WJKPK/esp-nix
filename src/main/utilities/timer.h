@@ -19,10 +19,8 @@
 
 #include <inttypes.h>
 #include "utilities/error.h"
+#include "utilities/types.h"
 
-typedef unsigned miliseconds;
-typedef unsigned microseconds;
-typedef unsigned seconds;
 typedef void (*soft_irq_routine)(void *, uint32_t);
 
 typedef enum {

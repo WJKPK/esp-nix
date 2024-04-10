@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 WJKPK
+ * Copyright 2024 WJKPK
  *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -8,8 +8,7 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
@@ -18,6 +17,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 #ifndef _MAIN_HEAT_CONTROLLER_
 #define _MAIN_HEAT_CONTROLLER_
 
@@ -26,15 +26,15 @@
 typedef unsigned celcius;
 
 typedef enum {
-    heating_state_idle,
-    heating_state_constant,
-    heating_state_multi_stage,
-    heating_state_last
+    HEATING_STATE_IDLE,
+    HEATING_STATE_CONSTANT,
+    HEATING_STATE_MULTI_STAGE,
+    HEATING_STATE_LAST
 } heating_mode_state;
 
 typedef enum {
-    multistage_heating_jedec,
-    multistage_heating_last
+    MULTISTAGE_HEATING_JEDEC,
+    MULTISTAGE_HEATING_LAST
 } multistage_heating_type;
 
 //TODO should have some status passed to input

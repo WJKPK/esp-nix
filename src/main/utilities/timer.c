@@ -74,15 +74,15 @@ static void on_oneshot_timer_tick( TimerHandle_t xTimer ) {
 }
 
 error_status_t timer_register_callback(periodic_timer_t timer, periodic_timer_callback_t callback, void* args) {
-    error_status_t err = error_collection_full;
-    timer >= periodic_timer_last ? ({ return error_unknown_resource; }) : ({});
+    error_status_t err = ERROR_COLLECTION_FULL;
+    timer >= periodic_timer_last ? ({ return ERROR_UNKNOWN_RESOURCE; }) : ({});
     if (!xSemaphoreTake(periodic_timers[timer].routines_lock.inner_handle, pdMS_TO_TICKS(TIMER_MAX_ROUTINE_LOCK_WAIT_MS)))
-        return error_timeout;
+        return ERROR_TIMEOUT;
     for (unsigned i = 0; i < COUNT_OF(periodic_timers[timer].routine_pairs); i++) {
         if (periodic_timers[timer].routine_pairs[i].callback == NULL) {
             periodic_timers[timer].routine_pairs[i].callback = callback;
             periodic_timers[timer].routine_pairs[i].args = args;
-            err = error_any;
+            err = ERROR_ANY;
             goto exit;
         }
     }
@@ -92,15 +92,15 @@ exit:
 }
 
 error_status_t timer_unregister_callback(periodic_timer_t timer, periodic_timer_callback_t callback) {
-    error_status_t err = error_unknown_resource;
+    error_status_t err = ERROR_UNKNOWN_RESOURCE;
     timer >= periodic_timer_last ? ({ return err; }) : ({});
     if (!xSemaphoreTake(periodic_timers[timer].routines_lock.inner_handle, pdMS_TO_TICKS(TIMER_MAX_ROUTINE_LOCK_WAIT_MS)))
-        return error_timeout;
+        return ERROR_TIMEOUT;
     for (unsigned i = 0; i < COUNT_OF(periodic_timers[timer].routine_pairs); i++) {
         if (periodic_timers[timer].routine_pairs[i].callback == callback) {
             periodic_timers[timer].routine_pairs[i].callback = NULL;
             periodic_timers[timer].routine_pairs[i].args = NULL;
-            err = error_any;
+            err = ERROR_ANY;
             goto exit;
         }
     }
@@ -110,16 +110,16 @@ exit:
 }
 
 error_status_t oneshot_arm(oneshot_timer_t timer, unsigned period_ms, oneshot_timer_callback_t callback, void* args) {
-    timer >= oneshot_timer_last ? ({ return error_unknown_resource; }) : ({});
+    timer >= oneshot_timer_last ? ({ return ERROR_UNKNOWN_RESOURCE; }) : ({});
     const TimerHandle_t handle = oneshot_timers[timer].handle;
 
     oneshot_timers[timer].routine_pair.callback = callback;
     oneshot_timers[timer].routine_pair.args = args;
-    pdTRUE == xTimerChangePeriod(handle, period_ms, 0) && xTimerReset(handle, 0) ? ({ return error_any; }) : ({});
+    pdTRUE == xTimerChangePeriod(handle, period_ms, 0) && xTimerReset(handle, 0) ? ({ return ERROR_ANY; }) : ({});
 
     oneshot_timers[timer].routine_pair.callback = NULL;
     oneshot_timers[timer].routine_pair.args = NULL;
-    return error_collection_full;
+    return ERROR_COLLECTION_FULL;
 }
 
 miliseconds periodic_get_period(periodic_timer_t timer) {
@@ -144,12 +144,12 @@ error_status_t timer_init(void) {
                                  &periodic_timers[name].internals);                                             \
                                  periodic_timers[name].routines_lock.inner_handle =                             \
                                      xSemaphoreCreateMutexStatic(&periodic_timers[name].routines_lock.resource);\
-                                 !periodic_timers[name].routines_lock.inner_handle ? ({ return error_resource_unavailable; }) : ({}); \
+                                 !periodic_timers[name].routines_lock.inner_handle ? ({ return ERROR_RESOURCE_UNAVAILABLE; }) : ({}); \
                                  periodic_timers[name].handle != NULL ? ({                                      \
                                     pdFAIL == xTimerStart(periodic_timers[name].handle, 0) ? ({                 \
-                                        return error_collection_full;                                           \
+                                        return ERROR_COLLECTION_FULL;                                           \
                                     }) : ({});                                                                  \
-                                 }) : ({ return error_resource_unavailable; });
+                                 }) : ({ return ERROR_RESOURCE_UNAVAILABLE; });
 
     #define ONESHOT_TIMER(name) oneshot_timers[name].handle = xTimerCreateStatic(STRINGIFY(name),               \
                                  portMAX_DELAY,                                                                 \
@@ -157,12 +157,12 @@ error_status_t timer_init(void) {
                                  &oneshot_timers[name].increment,                                               \
                                  on_oneshot_timer_tick,                                                         \
                                  &oneshot_timers[name].internals);                                              \
-                                 oneshot_timers[name].handle != NULL ? ({}) : ({ return error_resource_unavailable; });
+                                 oneshot_timers[name].handle != NULL ? ({}) : ({ return ERROR_RESOURCE_UNAVAILABLE; });
 
     #include "timer.scf"
     #undef PERIODIC_TIMER
     #undef ONESHOT_TIMER 
-    return error_any;
+    return ERROR_ANY;
 }
 
 error_status_t timer_soft_irq(soft_irq_routine routine, void* arg, uint32_t uarg) {
@@ -172,6 +172,6 @@ error_status_t timer_soft_irq(soft_irq_routine routine, void* arg, uint32_t uarg
         uarg,
         &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-    return result == pdTRUE ? error_any : error_collection_full;
+    return result == pdTRUE ? ERROR_ANY : ERROR_COLLECTION_FULL;
 }
 

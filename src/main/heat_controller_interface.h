@@ -24,9 +24,9 @@
 #include "utilities/error.h"
 typedef unsigned celcius;
 typedef enum {
-    heating_request_constant,
-    heating_request_jedec,
-    heating_request_last 
+    HEATING_REQUEST_CONSTANT,
+    HEATING_REQUEST_JEDEC,
+    HEATING_REQUEST_LAST 
 } heating_request_type;
 
 typedef struct {

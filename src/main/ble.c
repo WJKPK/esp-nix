@@ -37,15 +37,13 @@
 #include "utilities/scheduler.h"
 
 _Static_assert(1 == CONFIG_BT_NIMBLE_MAX_CONNECTIONS, "Component tested with only one concurrent connection!");
-#define BLE_CONN_HANDLE_INVALID   0xFFFF
+#define BLE_CONN_HANDLE_INVALID   0x0
 
 static const char* device_name = "ThermoPlate";
 static ble_context* ble_ctx = NULL;
 
 static error_status_t ble_advertise (void);
-static int generic_read_access(uint16_t conn_handle, uint16_t attr_handle,
-        struct ble_gatt_access_ctxt* ctxt, void* arg);
-static int generic_write_access(uint16_t conn_handle, uint16_t attr_handle,
+static int generic_access(uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt* ctxt, void* arg);
 
 #define GET_FULL_UUID(simplified_uuid) 0x94, 0x56, simplified_uuid & 0xFF, (simplified_uuid & 0xFF00) >> 8, 0xB4, 0x11, 0x12, 0xFA, \
@@ -55,7 +53,10 @@ static struct {
     uint16_t val_handle;
     simplified_uuid_t uuid;
 } handle_uuid_mapping[] = {
-    {0, HEATER_TEMPERATURE_READ_UUID}
+    {0, HEATER_TEMPERATURE_READ_UUID},
+    {0, HEATER_MODE_WRITE_UUID},
+    {0, HEATER_CONST_TEMPERATURE_WRITE_UUID},
+    {0, HEATER_CONST_TIME_WRITE_UUID},
 };
 
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
@@ -65,11 +66,11 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         .characteristics = (struct ble_gatt_chr_def[])
         { {
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MANUFACTURER_NAME_UUID)),
-              .access_cb = generic_read_access,
+              .access_cb = generic_access,
               .flags     = BLE_GATT_CHR_F_READ,
           },{
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(DEVICE_INFO_MODEL_NUMBER_UUID)),
-              .access_cb = generic_read_access,
+              .access_cb = generic_access,
               .flags     = BLE_GATT_CHR_F_READ,
           }, {
               0, /* No more characteristics in this service */
@@ -81,21 +82,24 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         .characteristics = (struct ble_gatt_chr_def[])
         { {
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_TEMPERATURE_READ_UUID)),
-              .access_cb = generic_read_access,
-              .val_handle = (uint16_t*)&handle_uuid_mapping[0].val_handle,
+              .access_cb = generic_access,
+              .val_handle = &handle_uuid_mapping[0].val_handle,
               .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_MODE_WRITE_UUID)),
-              .access_cb = generic_write_access,
-              .flags     = BLE_GATT_CHR_F_WRITE,
+              .access_cb = generic_access,
+              .val_handle = &handle_uuid_mapping[1].val_handle,
+              .flags     = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_CONST_TEMPERATURE_WRITE_UUID)),
-              .access_cb = generic_write_access,
-              .flags     = BLE_GATT_CHR_F_WRITE,
+              .access_cb = generic_access,
+              .val_handle = &handle_uuid_mapping[2].val_handle,
+              .flags     = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
               .uuid      = BLE_UUID128_DECLARE(GET_FULL_UUID(HEATER_CONST_TIME_WRITE_UUID)),
-              .access_cb = generic_write_access,
-              .flags     = BLE_GATT_CHR_F_WRITE,
+              .access_cb = generic_access,
+              .val_handle = &handle_uuid_mapping[3].val_handle,
+              .flags     = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
           },{
               0, /* No more characteristics in this service */
           }, }
@@ -127,14 +131,11 @@ simplified_uuid_t ble_get_simplified_uuid(const ble_uuid_t* full_uuid) {
 }
 
 error_status_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor) {
-    for (unsigned i = 0; i < BLE_READ_WRITE_CALLBACKS_COUNT; i++) {
-        if (ble_ctx->write_observers[i].observer != NULL)
-            continue;
-
+    for (unsigned i = 0; i < BLE_READ_WRITE_CALLBACKS_COUNT; i++) { if (ble_ctx->write_observers[i].observer != NULL) continue;
         ble_ctx->write_observers[i] = observer_descriptor;
-        return error_any;
+        return ERROR_ANY;
     }
-    return error_collection_full;
+    return ERROR_COLLECTION_FULL;
 }
 
 error_status_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor) {
@@ -143,9 +144,9 @@ error_status_t ble_add_read_observer(read_observer_descriptor_t observer_descrip
             continue;
 
         ble_ctx->read_observers[i] = observer_descriptor;
-        return error_any;
+        return ERROR_ANY;
     }
-    return error_collection_full;
+    return ERROR_COLLECTION_FULL;
 }
 
 static ble_uuid_any_t ble_get_full_uuid(simplified_uuid_t simplified_uuid) {
@@ -159,7 +160,7 @@ static ble_uuid_any_t ble_get_full_uuid(simplified_uuid_t simplified_uuid) {
 }
 
 static int ble_gap_event (struct ble_gap_event* event, void* arg) {
-    error_status_t ret = error_any;
+    error_status_t ret = ERROR_ANY;
     switch (event->type) {
         case BLE_GAP_EVENT_CONNECT:
             /* A new connection was established or a connection attempt failed */
@@ -173,7 +174,7 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
             }
             if (ble_ctx->conn_handle != BLE_CONN_HANDLE_INVALID) {
                 ret = (0 == ble_gap_terminate(event->connect.conn_handle, BLE_ERR_CONN_PARMS)) ?
-                    error_any : error_library_error;
+                    ERROR_ANY : ERROR_LIBRARY_ERROR;
                 break;
             }
             ble_ctx->conn_handle = event->connect.conn_handle;
@@ -202,7 +203,7 @@ static int ble_gap_event (struct ble_gap_event* event, void* arg) {
             break;
     }
 
-    return ret == error_any ? 0 : -1;
+    return ret == ERROR_ANY ? 0 : -1;
 }
 
 static error_status_t ble_advertise (void) {
@@ -219,14 +220,14 @@ static error_status_t ble_advertise (void) {
     fields.name_len         = strlen(ble_ctx->device_name);
     fields.name_is_complete = 1;
     
-    error_status_t ret = error_any;
+    error_status_t ret = ERROR_ANY;
     switch(ble_gap_adv_set_fields(&fields)) {
         case BLE_HS_EBUSY:
-            ret = action_already_requested;
-            goto error_handler;
+            ret = ERROR_ACTION_ALREADY_REQUESTED;
+            goto ERROR_HANDLER;
         case BLE_HS_EMSGSIZE:
-            ret = error_memory_constraint_exceeded; 
-            goto error_handler;
+            ret = ERROR_MEMORY_CONSTRAINT_EXCEEDED; 
+            goto ERROR_HANDLER;
         default:
             break;
     }
@@ -236,31 +237,48 @@ static error_status_t ble_advertise (void) {
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
     if (0 != ble_gap_adv_start(BLE_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL)) {
-        ret = error_library_error;
-        goto error_handler;
+        ret = ERROR_LIBRARY_ERROR;
+        goto ERROR_HANDLER;
     }
-    return error_any;
+    return ERROR_ANY;
 
-error_handler:
+ERROR_HANDLER:
     error_print_message(ret);
     return ret;
 
 }
 
-error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len) {
-    if (BLE_CONN_HANDLE_INVALID == ble_ctx->conn_handle)
-        return error_resource_unavailable;
-    struct os_mbuf *om = ble_hs_mbuf_from_flat(buff, len);
-    uint16_t handle = 0;
+static bool find_handle(simplified_uuid_t uuid, uint16_t* handle) {
     for (unsigned i = 0; i < COUNT_OF(handle_uuid_mapping); i++) {
         if(handle_uuid_mapping[i].uuid == uuid) {
-            handle = handle_uuid_mapping[i].val_handle;
-            goto success;
+            *handle = handle_uuid_mapping[i].val_handle;
+            return true;
         }
     }
-    return error_unknown_resource;
-success:
-    return 0 == ble_gatts_notify_custom(ble_ctx->conn_handle, handle, om) ? error_any : error_library_error;
+    return false;
+}
+
+error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len) {
+    if (BLE_CONN_HANDLE_INVALID == ble_ctx->conn_handle)
+        return ERROR_RESOURCE_UNAVAILABLE;
+
+    struct os_mbuf *om = ble_hs_mbuf_from_flat(buff, len);
+    uint16_t handle;
+    if (!find_handle(uuid, &handle))
+        return ERROR_UNKNOWN_RESOURCE;
+
+    return 0 == ble_gatts_notify_custom(ble_ctx->conn_handle, handle, om) ? ERROR_ANY : ERROR_LIBRARY_ERROR;
+}
+
+error_status_t ble_notify(simplified_uuid_t uuid) {
+    if (BLE_CONN_HANDLE_INVALID == ble_ctx->conn_handle)
+        return ERROR_RESOURCE_UNAVAILABLE;
+
+    uint16_t handle;
+    if (!find_handle(uuid, &handle))
+        return ERROR_UNKNOWN_RESOURCE;
+
+    return 0 == ble_gatts_notify(ble_ctx->conn_handle, handle) ? ERROR_ANY : ERROR_LIBRARY_ERROR;
 }
 
 static bool is_uuid_in_filter(const ble_uuid_t* uuid, simplified_uuid_t const* filter, unsigned count) {
@@ -328,6 +346,26 @@ static int generic_write_access(uint16_t conn_handle, uint16_t attr_handle,
     return 0;
 }
 
+static int generic_access(uint16_t conn_handle, uint16_t attr_handle,
+  struct ble_gatt_access_ctxt* ctxt, void* arg) {
+    log_info("%s called with op %u", __FUNCTION__, ctxt->op);
+    int result;
+    switch(ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            result = generic_read_access(conn_handle, attr_handle, ctxt, arg);
+            log_info("result %d", result);
+            return result;
+
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return generic_write_access(conn_handle, attr_handle, ctxt, arg);
+
+        case BLE_GATT_ACCESS_OP_READ_DSC:
+        case BLE_GATT_ACCESS_OP_WRITE_DSC:
+            return 0;
+    }
+    return 0;
+}
+
 static void ble_on_sync (void) {
     ble_advertise();
 }
@@ -385,30 +423,30 @@ static int gatt_svr_init (void) {
     if(ble_svc_gap_device_name_set(ble_ctx->device_name) != 0)
         goto lib_error;
 
-    return error_any;
+    return ERROR_ANY;
 
 lib_error:
-    error_print_message(error_library_error);
-    return error_library_error;
+    error_print_message(ERROR_LIBRARY_ERROR);
+    return ERROR_LIBRARY_ERROR;
 }
 
 static error_status_t setup_context(ble_context_allocator ctx_allocator) {
     ble_ctx = ctx_allocator();
     if (NULL == ble_ctx)
-        return error_memory_constraint_exceeded;
+        return ERROR_MEMORY_CONSTRAINT_EXCEEDED;
 
     memset(ble_ctx, 0, sizeof(*ble_ctx));
     ble_ctx->device_name = device_name;
     ble_ctx->conn_handle = BLE_CONN_HANDLE_INVALID;
-    return error_any;
+    return ERROR_ANY;
 }
 
 error_status_t ble_init_nimble(ble_context_allocator ctx_allocator) {
     if (NULL == ctx_allocator)
-        return error_invalid_input_parameter;
+        return ERROR_INVALID_INPUT_PARAMETER;
     
-    error_status_t ctx_status = error_any;
-    if (error_any != (ctx_status = setup_context(ctx_allocator)))
+    error_status_t ctx_status = ERROR_ANY;
+    if (ERROR_ANY != (ctx_status = setup_context(ctx_allocator)))
         return ctx_status;
 
     esp_err_t ret = nimble_port_init();
@@ -419,15 +457,15 @@ error_status_t ble_init_nimble(ble_context_allocator ctx_allocator) {
     ble_hs_cfg.reset_cb = ble_on_reset;
     ble_hs_cfg.gatts_register_cb = gatt_svr_register_cb;
 
-    if (gatt_svr_init() != error_any)
+    if (gatt_svr_init() != ERROR_ANY)
         goto lib_error;
 
     nimble_port_freertos_init(ble_host_task);
-    return error_any;
+    return ERROR_ANY;
 
 lib_error:
-    error_print_message(error_library_error);
-    return error_library_error;
+    error_print_message(ERROR_LIBRARY_ERROR);
+    return ERROR_LIBRARY_ERROR;
 
 }
 

@@ -22,17 +22,17 @@
 #define DEFINE_ERROR(name, description) name,
 typedef enum {
     #include "error.scf"
-    error_last
+    ERROR_LAST
 } error_status_t;
 #undef DEFINE_ERROR
 
 void _error_print_message(error_status_t error, char* file, unsigned line);
-#define error_print_message(error) _error_print_message(error, __FILE__, __LINE__);
+#define error_print_message(ERROR) _error_print_message(ERROR, __FILE__, __LINE__);
 
 void _fatal_handler(error_status_t rc, const char *file, int line, const char *function, const char *expression);
 #define FATAL_IF_FAIL(x) do {                               \
         error_status_t err_rc_ = (x);                       \
-        if (unlikely(err_rc_ != error_any)) {               \
+        if (unlikely(err_rc_ != ERROR_ANY)) {               \
             _fatal_handler(err_rc_, __FILE__, __LINE__,     \
                                     __FUNCTION__, #x);      \
         }                                                   \

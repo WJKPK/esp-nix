@@ -19,8 +19,6 @@
  * under the License.
  */
 
-#define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_INFO
-
 #include "lcd.h"
 #include <rom/ets_sys.h>
 #include <driver/gpio.h>
@@ -32,8 +30,10 @@
 #include "lcd1602/lcd1602.h"
 #include "utilities/timer.h"
 #include "utilities/addons.h"
-#include "utilities/logger.h"
 #include "utilities/scheduler.h"
+
+#define LOGGER_OUTPUT_LEVEL LOG_OUTPUT_INFO
+#include "utilities/logger.h"
 
 #define LCD_D4_LINE 9U
 #define LCD_D5_LINE 6U
@@ -73,14 +73,6 @@ bool lcd_pin_set(pin_t gpio_num, bool level) {
     return ESP_OK == gpio_set_level(gpio_num, (uint32_t)level);
 }
 
-static bool is_string(char* text) {
-   return strlen(text) > 0;
-}
-
-static bool is_symbol(custom_symbol symbol) {
-   return symbol != kCustomSymbolLast;
-}
-
 error_status_t lcd_send_request_custom(unsigned line, unsigned position, custom_symbol symbol) {
     lcd_request request = {
         .commanand = lcd_command_print_symbol,
@@ -90,9 +82,9 @@ error_status_t lcd_send_request_custom(unsigned line, unsigned position, custom_
     };
 
     if (!scheduler_enqueue(SchedulerQueueLcd, &request))
-        return error_collection_full;
+        return ERROR_COLLECTION_FULL;
 
-    return error_any;
+    return ERROR_ANY;
 }
 
 error_status_t lcd_send_request_string(unsigned line, unsigned position, const char* str, ...) {
@@ -108,12 +100,12 @@ error_status_t lcd_send_request_string(unsigned line, unsigned position, const c
     va_end(args);
     
     if (result >= LCD_MAX_LINE_LEN || result < 0)
-        return error_resource_unavailable;
+        return ERROR_RESOURCE_UNAVAILABLE;
 
     if (!scheduler_enqueue(SchedulerQueueLcd, &request))
-        return error_collection_full;
+        return ERROR_COLLECTION_FULL;
 
-    return error_any;
+    return ERROR_ANY;
 }
 
 error_status_t lcd_send_clean(void) {
@@ -122,9 +114,9 @@ error_status_t lcd_send_clean(void) {
     };
 
     if (!scheduler_enqueue(SchedulerQueueLcd, &request))
-        return error_collection_full;
+        return ERROR_COLLECTION_FULL;
 
-    return error_any;
+    return ERROR_ANY;
 
 }
 
@@ -215,13 +207,13 @@ error_status_t ldc_init(void) {
         && lcd16x2_createChar(kCustomSymbolPlateProgram, plate_program)
         && lcd16x2_createChar(kCustomSymbolArrowUp, arrow_up)
         && lcd16x2_createChar(kCustomSymbolArrowDown, arrow_down)))
-        return error_unknown_resource;
+        return ERROR_UNKNOWN_RESOURCE;
 
     lcd16x2_cursorShow(false);
 
     if (!scheduler_subscribe(SchedulerQueueLcd, on_lcd_request))
-        return error_collection_full;
-    return error_any;
+        return ERROR_COLLECTION_FULL;
+    return ERROR_ANY;
 }
 
 

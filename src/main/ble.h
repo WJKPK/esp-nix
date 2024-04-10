@@ -71,6 +71,7 @@ typedef ble_context* (*ble_context_allocator)(void);
 error_status_t ble_add_write_observer(write_observer_descriptor_t observer_descriptor);
 error_status_t ble_add_read_observer(read_observer_descriptor_t observer_descriptor);
 error_status_t ble_notify_custom(simplified_uuid_t uuid, uint8_t* buff, size_t len);
+error_status_t ble_notify(simplified_uuid_t uuid);
 
 error_status_t ble_init_nimble(ble_context_allocator ctx_allocator);
 

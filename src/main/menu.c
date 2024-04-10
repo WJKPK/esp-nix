@@ -90,14 +90,14 @@ static void show_preempt_display(void) {
 
 static void send_predefined_heating_request(void) {
     heater_request request = {
-        .type = heating_request_jedec,
+        .type = HEATING_REQUEST_JEDEC,
     };
     scheduler_enqueue(SchedulerQueueHeatControlerInterface, &request);
 }
 
 static void send_constant_heating_request(celcius temperature, seconds time) {
     heater_request request = {
-        .type = heating_request_constant,
+        .type = HEATING_REQUEST_CONSTANT,
         .constant = {
             .duration = time,
             .const_temperature = temperature

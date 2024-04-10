@@ -27,7 +27,7 @@ extern "C" {
 }
 
 error_status_t lcd_send_request(lcd_descriptor * lcd_desc) {
-    return static_cast<error_status_t>(mock().actualCall("lcd_send_request").returnIntValue());
+    return static_cast<error_status_t>(MOCK().ACTUALCALL("LCD_SEND_REQUEST").RETURNINTVALUE());
 }
 
 TEST_GROUP(MenuTests) {
@@ -43,7 +43,7 @@ TEST(MenuTests, GoToJedecTest) {
     encoder_event_type push = ENCODER_EVENT_PUSH;
     encoder_event_type down = ENCODER_EVENT_DOWN;
 
-    mock().expectNCalls(2, "lcd_send_request").andReturnValue(error_any);
+    mock().expectNCalls(2, "lcd_send_request").andReturnValue(ERROR_ANY);
     scheduler_enqueue(SchedulerQueueMenu, &push); 
     scheduler_enqueue(SchedulerQueueMenu, &down); 
 
