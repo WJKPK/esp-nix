@@ -109,14 +109,11 @@ static void send_constant_heating_request(celcius temperature, seconds time) {
 static menu_state
 handle_idle_state(menu_event_type event) {
     switch (event) {
-        case MENU_EVENT_ENCODER_PUSH:
-            return MENU_STATE_HEATING_CONSTANT;
-
         case MENU_EVENT_PREEMPT_REQUEST:
             return MENU_STATE_PREEMPTED; 
 
         default:
-            break;
+            return MENU_STATE_HEATING_CONSTANT;
     }
     return MENU_STATE_INIT;
 }

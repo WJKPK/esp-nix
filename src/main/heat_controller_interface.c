@@ -37,6 +37,7 @@ typedef enum {
     WRITE_BOTH = 0x3
 } write_map;
 _Static_assert((WRITE_TIME | WRITE_TEMPERATURE) == WRITE_BOTH, "");
+_Static_assert(WRITE_ANY == 0, "");
 
 typedef enum {
     COMPONENT_IDLE_PRIORITY,
@@ -132,8 +133,11 @@ static error_status_t request_mode_via_ble(heating_request_type mode) {
             result = heat_controller_start_constant_heating(ctx.const_temperature_settings.temperature,
                     ctx.const_temperature_settings.time, unblock_menu_operations);
             break;
+
         case HEATING_REQUEST_LAST:
+        case HEATING_REQUEST_CANCEL:
             break;
+
         default:
             result = heat_controller_start_multistage_heating_mode(map_request_to_multistage_type(mode),
                     unblock_menu_operations);
@@ -142,18 +146,13 @@ static error_status_t request_mode_via_ble(heating_request_type mode) {
     if (result != ERROR_ANY) {
         ctx.request_type = HEATING_REQUEST_LAST;
         error_print_message(result);
-        //TODO what to do?
     }
+    ble_notify(HEATER_MODE_WRITE_UUID);
     return result;
 }
 
-static void reset_const_temperature_settings(void) {
-    memset(&ctx.const_temperature_settings, 0, sizeof(ctx.const_temperature_settings));
-    ctx.const_temperature_settings.map = WRITE_ANY;
-}
-
 static void on_ble_request(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
-    heating_request_type* mode = (heating_request_type*)buff;
+    heating_request_type mode = *((heating_request_type*)buff);
     if (!is_request_priority_higher_than_proccesed(COMPONENT_BLE_PRIORITY))
         return;
     ctx.processed_request = COMPONENT_BLE_PRIORITY;
@@ -170,13 +169,18 @@ static void on_ble_request(simplified_uuid_t uuid, uint8_t* buff, size_t size) {
             break;
 
         case HEATER_MODE_WRITE_UUID:
-            //TODO: Handle error - write to BLE and display to inform?
-            mode = (heating_request_type*)buff;
-            if (*mode >= HEATING_REQUEST_LAST)
+            if (mode >= HEATING_REQUEST_LAST)
                 return;
-            if (ERROR_ANY == request_mode_via_ble(*mode)) {
-                if (*mode == HEATING_REQUEST_CONSTANT)
-                    reset_const_temperature_settings();
+
+            if (mode == HEATING_REQUEST_CANCEL) {
+                ctx.request_type = mode;
+                heat_controller_cancel_action();
+                break;
+            }
+
+            if (ERROR_ANY == request_mode_via_ble(mode)) {
+                if (mode == HEATING_REQUEST_CONSTANT)
+                    memset(&ctx.const_temperature_settings, 0, sizeof(ctx.const_temperature_settings));
             }
             break;
 
@@ -218,16 +222,18 @@ static void on_menu_request(void* _request) {
                     map_request_to_multistage_type(request->type), inform_about_job_done);
             break;
 
+        case HEATING_REQUEST_CANCEL:
+            result = heat_controller_cancel_action();
+            break;
+
         default:
             break;
     }
     if (result != ERROR_ANY) {
         ctx.request_type = HEATING_REQUEST_LAST;
         error_print_message(result);
-        //TODO what to do?
     }
-    error_status_t status = ble_notify(HEATER_MODE_WRITE_UUID);
-    error_print_message(status);
+    ble_notify(HEATER_MODE_WRITE_UUID);
 }
 
 error_status_t heat_controller_interface_init(void) {
@@ -255,5 +261,4 @@ error_status_t heat_controller_interface_init(void) {
 
     return ble_add_write_observer(write_observer_descriptor);
 }
-
 

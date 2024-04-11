@@ -26,6 +26,7 @@ typedef unsigned celcius;
 typedef enum {
     HEATING_REQUEST_CONSTANT,
     HEATING_REQUEST_JEDEC,
+    HEATING_REQUEST_CANCEL,
     HEATING_REQUEST_LAST 
 } heating_request_type;
 

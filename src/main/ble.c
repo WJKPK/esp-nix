@@ -224,10 +224,10 @@ static error_status_t ble_advertise (void) {
     switch(ble_gap_adv_set_fields(&fields)) {
         case BLE_HS_EBUSY:
             ret = ERROR_ACTION_ALREADY_REQUESTED;
-            goto ERROR_HANDLER;
+            goto error_handler;
         case BLE_HS_EMSGSIZE:
             ret = ERROR_MEMORY_CONSTRAINT_EXCEEDED; 
-            goto ERROR_HANDLER;
+            goto error_handler;
         default:
             break;
     }
@@ -238,11 +238,11 @@ static error_status_t ble_advertise (void) {
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
     if (0 != ble_gap_adv_start(BLE_ADDR_PUBLIC, NULL, BLE_HS_FOREVER, &adv_params, ble_gap_event, NULL)) {
         ret = ERROR_LIBRARY_ERROR;
-        goto ERROR_HANDLER;
+        goto error_handler;
     }
     return ERROR_ANY;
 
-ERROR_HANDLER:
+error_handler:
     error_print_message(ret);
     return ret;
 
