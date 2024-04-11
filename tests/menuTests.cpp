@@ -1,12 +1,12 @@
 /*
  * Copyright 2023 WJKPK
- *  
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,22 +20,18 @@
 #include <unistd.h>
 
 extern "C" {
-    #include "FreeRTOS.h"
-    #include "task.h"
-    #include"menu.h"
-    #include "utilities/scheduler.h"
-}
-
-error_status_t lcd_send_request(lcd_descriptor * lcd_desc) {
-    return static_cast<error_status_t>(MOCK().ACTUALCALL("LCD_SEND_REQUEST").RETURNINTVALUE());
+#include "FreeRTOS.h"
+#include "task.h"
+#include "menu.h"
+#include "utilities/scheduler.h"
 }
 
 TEST_GROUP(MenuTests) {
-    void setup () {
+    void setup() {
         menu_init();
     }
 
-    void teardown () {
+    void teardown() {
     }
 };
 
@@ -44,10 +40,9 @@ TEST(MenuTests, GoToJedecTest) {
     encoder_event_type down = ENCODER_EVENT_DOWN;
 
     mock().expectNCalls(2, "lcd_send_request").andReturnValue(ERROR_ANY);
-    scheduler_enqueue(SchedulerQueueMenu, &push); 
-    scheduler_enqueue(SchedulerQueueMenu, &down); 
+    scheduler_enqueue(SchedulerQueueMenu, &push);
+    scheduler_enqueue(SchedulerQueueMenu, &down);
 
     mock().checkExpectations();
     mock().clear();
 }
-

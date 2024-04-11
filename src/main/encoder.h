@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2024 WJKPK
  *
@@ -33,4 +32,4 @@ typedef enum {
     ENCODER_EVENT_LAST
 } encoder_event_type;
 
-#endif
+#endif // ifndef _MAIN_ENCODER_

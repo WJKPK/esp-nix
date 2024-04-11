@@ -27,17 +27,17 @@ typedef enum {
     HEATING_REQUEST_CONSTANT,
     HEATING_REQUEST_JEDEC,
     HEATING_REQUEST_CANCEL,
-    HEATING_REQUEST_LAST 
+    HEATING_REQUEST_LAST
 } heating_request_type;
 
 typedef struct {
     heating_request_type type;
     struct {
-        celcius const_temperature;
-        unsigned duration; 
+        celcius  const_temperature;
+        unsigned duration;
     } constant;
 } heater_request;
 
 error_status_t heat_controller_interface_init(void);
 
-#endif
+#endif // ifndef _MAIN_HEAT_CONTROLLER_INTERFACE_

@@ -25,45 +25,45 @@
 #include "nimble/ble.h"
 #include "utilities/error.h"
 
-#define DEVICE_MEASUREMENT_SERVICE              0x181A
-#define DEVICE_INFO_SERVICE                     0x180A
-#define DEVICE_INFO_MANUFACTURER_NAME_UUID      0x2A29
-#define DEVICE_INFO_MODEL_NUMBER_UUID           0x2A24
-#define HEATER_TEMPERATURE_READ_UUID            0x2A6E
-#define HEATER_MODE_WRITE_UUID                  0x2A26
-#define HEATER_CONST_TEMPERATURE_WRITE_UUID     0x2A27
-#define HEATER_CONST_TIME_WRITE_UUID            0x2A28
+#define DEVICE_MEASUREMENT_SERVICE          0x181A
+#define DEVICE_INFO_SERVICE                 0x180A
+#define DEVICE_INFO_MANUFACTURER_NAME_UUID  0x2A29
+#define DEVICE_INFO_MODEL_NUMBER_UUID       0x2A24
+#define HEATER_TEMPERATURE_READ_UUID        0x2A6E
+#define HEATER_MODE_WRITE_UUID              0x2A26
+#define HEATER_CONST_TEMPERATURE_WRITE_UUID 0x2A27
+#define HEATER_CONST_TIME_WRITE_UUID        0x2A28
 
 typedef uint16_t simplified_uuid_t;
 
 typedef struct {
-    void* buff;
+    void*  buff;
     size_t size;
 } read_buff_descriptor_t;
 
-#define EMPTY_READ_BUFF ((read_buff_descriptor_t){.buff = NULL, .size = 0})
-typedef void(*ble_write_callback_t)(simplified_uuid_t uuid, uint8_t* buff, size_t size);
+#define EMPTY_READ_BUFF ((read_buff_descriptor_t){ .buff = NULL, .size = 0 })
+typedef void (*ble_write_callback_t)(simplified_uuid_t uuid, uint8_t* buff, size_t size);
 typedef read_buff_descriptor_t (*ble_read_callback_t)(simplified_uuid_t uuid);
 
 typedef struct {
     simplified_uuid_t const* uuid_filter;
-    unsigned filter_count;
-    ble_write_callback_t observer;
+    unsigned                 filter_count;
+    ble_write_callback_t     observer;
 } write_observer_descriptor_t;
 
 typedef struct {
     simplified_uuid_t const* uuid_filter;
-    unsigned filter_count;
-    ble_read_callback_t observer;
+    unsigned                 filter_count;
+    ble_read_callback_t      observer;
 } read_observer_descriptor_t;
 
 #define BLE_READ_WRITE_CALLBACKS_COUNT 8U
 typedef struct {
-    const char* device_name;
-    read_observer_descriptor_t read_observers[BLE_READ_WRITE_CALLBACKS_COUNT];
+    const char*                 device_name;
+    read_observer_descriptor_t  read_observers[BLE_READ_WRITE_CALLBACKS_COUNT];
     write_observer_descriptor_t write_observers[BLE_READ_WRITE_CALLBACKS_COUNT];
-    uint8_t data_buffer[BLE_ACL_MAX_PKT_SIZE];
-    uint16_t conn_handle;
+    uint8_t                     data_buffer[BLE_ACL_MAX_PKT_SIZE];
+    uint16_t                    conn_handle;
 } ble_context;
 
 typedef ble_context* (*ble_context_allocator)(void);
@@ -75,5 +75,4 @@ error_status_t ble_notify(simplified_uuid_t uuid);
 
 error_status_t ble_init_nimble(ble_context_allocator ctx_allocator);
 
-#endif
-
+#endif // ifndef H_BLEHR_SENSOR_

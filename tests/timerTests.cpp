@@ -1,12 +1,12 @@
 /*
  * Copyright 2023 WJKPK
- *  
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,24 +28,24 @@ extern "C" {
 
 static std::atomic<bool> is_test_finished(false);
 
-static inline void set_test_end (void) {
+static inline void set_test_end(void) {
     std::atomic_store_explicit(&is_test_finished, true, std::memory_order_relaxed);
 };
 
-static inline void set_test_start (void) {
+static inline void set_test_start(void) {
     std::atomic_store_explicit(&is_test_finished, false, std::memory_order_relaxed);
 };
 
-static inline bool get_test_status (void) {
+static inline bool get_test_status(void) {
     return std::atomic_load_explicit(&is_test_finished, std::memory_order_relaxed);
 };
 
 TEST_GROUP(TimerTests) {
-    void setup () {
+    void setup() {
         set_test_start();
     }
 
-    void teardown () {
+    void teardown() {
     }
 };
 
@@ -64,4 +64,3 @@ TEST(TimerTests, OneSecondTimerFireFiveTimes) {
 
     while (!get_test_status());
 }
-

@@ -37,12 +37,14 @@ typedef enum {
     MULTISTAGE_HEATING_LAST
 } multistage_heating_type;
 
-//TODO should have some status passed to input
+// TODO should have some status passed to input
 typedef void (*heat_completion_marker)(void);
-error_status_t heat_controller_start_multistage_heating_mode(multistage_heating_type type, heat_completion_marker completion_routine);
-error_status_t heat_controller_start_constant_heating(celcius temperature, unsigned duration, heat_completion_marker completion_routine);
+error_status_t heat_controller_start_multistage_heating_mode(multistage_heating_type type,
+  heat_completion_marker                                                             completion_routine);
+error_status_t heat_controller_start_constant_heating(celcius temperature, unsigned duration,
+  heat_completion_marker completion_routine);
 error_status_t heat_controller_init(void);
 unsigned heat_controller_get_temperature(void);
 error_status_t heat_controller_cancel_action(void);
 
-#endif
+#endif // ifndef _MAIN_HEAT_CONTROLLER_

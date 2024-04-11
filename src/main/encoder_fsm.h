@@ -21,10 +21,9 @@
 #include <stdbool.h>
 
 typedef enum {
-   ENCODER_DIRECTION_ANY = 0x0,
-   ENCODER_DIRECTION_CLOCKWISE = 0x10,
-   ENCODER_DIRECTION_COUNTERCLOCKWISE = 0x20,
+    ENCODER_DIRECTION_ANY              = 0x0,
+    ENCODER_DIRECTION_CLOCKWISE        = 0x10,
+    ENCODER_DIRECTION_COUNTERCLOCKWISE = 0x20,
 } encoder_fsm_output;
 
 encoder_fsm_output encoder_fms_process(bool a_state, bool b_state);
-

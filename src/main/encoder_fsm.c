@@ -33,26 +33,34 @@ typedef enum {
 } ENCODER_FSM_STATE;
 
 const uint8_t ttable[ENCODER_FSM_LAST][4] = {
-  // start
-  {ENCODER_FSM_START, ENCODER_FSM_CLOCK_BEGIN,  ENCODER_FSM_CONTERCLOCK_BEGIN, ENCODER_FSM_START},
-  // clockwise_final
-  {ENCODER_FSM_CLOCK_NEXT, ENCODER_FSM_START, ENCODER_FSM_CLOCK_FINAL,  ENCODER_FSM_START | ENCODER_DIRECTION_CLOCKWISE},
-  // clockwise_begin 
-  {ENCODER_FSM_CLOCK_NEXT,  ENCODER_FSM_CLOCK_BEGIN,  ENCODER_FSM_START, ENCODER_FSM_START},
-  // clockwise_next
-  {ENCODER_FSM_CLOCK_NEXT,  ENCODER_FSM_CLOCK_BEGIN,  ENCODER_FSM_CLOCK_FINAL,  ENCODER_FSM_START},
-  // counterclockwise_begin
-  {ENCODER_FSM_COUNTERCLOCK_NEXT, ENCODER_FSM_START, ENCODER_FSM_CONTERCLOCK_BEGIN, ENCODER_FSM_START},
-  // counterclockwise_final
-  {ENCODER_FSM_COUNTERCLOCK_NEXT, ENCODER_FSM_COUNTERCLOCK_FINAL, ENCODER_FSM_START, ENCODER_FSM_START | ENCODER_DIRECTION_COUNTERCLOCKWISE},
-  // counterclockwise_next
-  {ENCODER_FSM_COUNTERCLOCK_NEXT, ENCODER_FSM_COUNTERCLOCK_FINAL, ENCODER_FSM_CONTERCLOCK_BEGIN, ENCODER_FSM_START},
+    // start
+    { ENCODER_FSM_START,             ENCODER_FSM_CLOCK_BEGIN,             ENCODER_FSM_CONTERCLOCK_BEGIN,
+      ENCODER_FSM_START                                                  },
+    // clockwise_final
+    { ENCODER_FSM_CLOCK_NEXT,        ENCODER_FSM_START,                   ENCODER_FSM_CLOCK_FINAL,
+      ENCODER_FSM_START | ENCODER_DIRECTION_CLOCKWISE                                              },
+    // clockwise_begin
+    { ENCODER_FSM_CLOCK_NEXT,        ENCODER_FSM_CLOCK_BEGIN,             ENCODER_FSM_START,
+      ENCODER_FSM_START                                                                                                          },
+    // clockwise_next
+    { ENCODER_FSM_CLOCK_NEXT,        ENCODER_FSM_CLOCK_BEGIN,             ENCODER_FSM_CLOCK_FINAL,
+      ENCODER_FSM_START                                                                                                                                        },
+    // counterclockwise_begin
+    { ENCODER_FSM_COUNTERCLOCK_NEXT, ENCODER_FSM_START,                   ENCODER_FSM_CONTERCLOCK_BEGIN,
+      ENCODER_FSM_START                                                                                                                                                                      },
+    // counterclockwise_final
+    { ENCODER_FSM_COUNTERCLOCK_NEXT, ENCODER_FSM_COUNTERCLOCK_FINAL,      ENCODER_FSM_START,
+      ENCODER_FSM_START
+      | ENCODER_DIRECTION_COUNTERCLOCKWISE                                                                                                                                                   },
+    // counterclockwise_next
+    { ENCODER_FSM_COUNTERCLOCK_NEXT, ENCODER_FSM_COUNTERCLOCK_FINAL,      ENCODER_FSM_CONTERCLOCK_BEGIN,
+      ENCODER_FSM_START                                                                                                                                                                                        },
 };
 
 encoder_fsm_output encoder_fms_process(bool a_state, bool b_state) {
     static uint8_t state = ENCODER_FSM_START;
-    uint8_t pinstate = ((b_state << 1) | a_state) & 0xF;
-    state = ttable[state & 0xf][pinstate];
-    return (encoder_fsm_output)(state & 0x30);
-}
+    uint8_t pinstate     = ((b_state << 1) | a_state) & 0xF;
 
+    state = ttable[state & 0xf][pinstate];
+    return (encoder_fsm_output) (state & 0x30);
+}

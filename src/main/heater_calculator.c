@@ -28,21 +28,22 @@ static pid_state_t previous_state = { 0 };
 static float constrain_output(float output) {
     const float min_power_percent = 5.f;
     const float max_power_percent = 100.f;
+
     return output < min_power_percent ? 0.0f : output > max_power_percent ? max_power_percent : output;
 }
 
 float get_heating_power_percent(float actual_temperature, float setpoint) {
     const pid_params_t parameters = {
-       .kp = 1.0f,
-       .kd = 0,
-       .ki = 0.2f,
+        .kp = 1.0f,
+        .kd = 0,
+        .ki = 0.2f,
     };
+
     previous_state.actual = actual_temperature;
     previous_state.target = setpoint;
-    float actual_time = ((float)(xTaskGetTickCount())/(float)portTICK_PERIOD_MS)/1000.f;
+    float actual_time = ((float) (xTaskGetTickCount()) / (float) portTICK_PERIOD_MS) / 1000.f;
     previous_state.time_delta = actual_time - previous_state.time_delta;
 
     previous_state = pid_iterate(parameters, previous_state);
     return constrain_output(previous_state.output);
 }
-

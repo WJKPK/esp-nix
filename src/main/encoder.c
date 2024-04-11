@@ -35,11 +35,12 @@
 #include "utilities/logger.h"
 
 #define ENCODER_PUSH_PIN GPIO_NUM_0
-#define ENCODER_A_PIN GPIO_NUM_20
-#define ENCODER_B_PIN GPIO_NUM_21
+#define ENCODER_A_PIN    GPIO_NUM_20
+#define ENCODER_B_PIN    GPIO_NUM_21
 
 static void process_detected_state(void* args, uint32_t state) {
     encoder_event_type event = ENCODER_EVENT_LAST;
+
     switch (state) {
         case ENCODER_DIRECTION_CLOCKWISE:
             log_info("Up!");
@@ -63,38 +64,39 @@ static void process_button_click(void* args, uint32_t state) {
     scheduler_enqueue(SchedulerQueueMenu, &event);
 }
 
-
-IRAM_ATTR void gpio_encoder_isr_routine(void *arg) {
+IRAM_ATTR void gpio_encoder_isr_routine(void* arg) {
     encoder_fsm_output direction = encoder_fms_process(gpio_get_level(ENCODER_A_PIN), gpio_get_level(ENCODER_B_PIN));
+
     switch (direction) {
         case ENCODER_DIRECTION_CLOCKWISE:
         case ENCODER_DIRECTION_COUNTERCLOCKWISE:
-            timer_soft_irq(process_detected_state, NULL, (uint32_t)direction); 
+            timer_soft_irq(process_detected_state, NULL, (uint32_t) direction);
             break;
         default:
             break;
     }
 }
 
-IRAM_ATTR void gpio_encoder_push_isr_routine(void *arg) {
+IRAM_ATTR void gpio_encoder_push_isr_routine(void* arg) {
     bool is_pressed = !gpio_get_level(ENCODER_PUSH_PIN);
+
     if (is_pressed)
-        timer_soft_irq(process_button_click, NULL, 0); 
+        timer_soft_irq(process_button_click, NULL, 0);
 }
 
 error_status_t encoder_init(void) {
-    uint64_t pin_mask_isr = ((1ULL << ENCODER_PUSH_PIN)  |
-                             (1ULL << ENCODER_B_PIN)     |
-                             (1ULL << ENCODER_A_PIN));
+    uint64_t pin_mask_isr = ((1ULL << ENCODER_PUSH_PIN)
+      | (1ULL << ENCODER_B_PIN)
+      | (1ULL << ENCODER_A_PIN));
 
     gpio_reset_pin(ENCODER_A_PIN);
-	gpio_reset_pin(ENCODER_B_PIN);
+    gpio_reset_pin(ENCODER_B_PIN);
 
     gpio_config_t io_conf_isr = {
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = 1,
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = 1,
         .pull_down_en = 0,
-        .intr_type = GPIO_INTR_ANYEDGE,
+        .intr_type    = GPIO_INTR_ANYEDGE,
         .pin_bit_mask = pin_mask_isr
     };
 
@@ -105,4 +107,3 @@ error_status_t encoder_init(void) {
 
     return ERROR_ANY;
 }
-
