@@ -28,6 +28,7 @@ extern "C" {
 
 TEST_GROUP(MenuTests) {
     void setup() {
+        mock().expectNCalls(1, "lcd_send_request_string").andReturnValue(ERROR_ANY);
         menu_init();
     }
 
@@ -35,11 +36,16 @@ TEST_GROUP(MenuTests) {
     }
 };
 
+error_status_t lcd_send_request_string(unsigned line, unsigned position, const char* str, ...) {
+    return static_cast<error_status_t>(mock().actualCall("lcd_send_request_string").returnIntValue());
+}
+
 TEST(MenuTests, GoToJedecTest) {
     encoder_event_type push = ENCODER_EVENT_PUSH;
     encoder_event_type down = ENCODER_EVENT_DOWN;
+    mock().expectNCalls(2, "lcd_send_clean").andReturnValue(ERROR_ANY);
+    mock().expectNCalls(3, "lcd_send_request_string").andReturnValue(ERROR_ANY);
 
-    mock().expectNCalls(2, "lcd_send_request").andReturnValue(ERROR_ANY);
     scheduler_enqueue(SchedulerQueueMenu, &push);
     scheduler_enqueue(SchedulerQueueMenu, &down);
 

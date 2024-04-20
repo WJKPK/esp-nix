@@ -22,6 +22,10 @@
 #ifndef _MAIN_LCD_
 #define _MAIN_LCD_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "utilities/error.h"
 
 #define LCD_MAX_LINE_LEN 16U
@@ -60,6 +64,10 @@ error_status_t lcd_send_request_string(unsigned line, unsigned position, const c
         const char*: lcd_send_request_string, \
         char*: lcd_send_request_string \
     )(line, position, arg, ##__VA_ARGS__)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _MAIN_LCD_
 

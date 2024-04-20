@@ -16,6 +16,11 @@
 
 #ifndef _MAIN_MENU_
 #define _MAIN_MENU_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     MENU_EVENT_ENCODER_UP,
     MENU_EVENT_ENCODER_DOWN,
@@ -27,6 +32,10 @@ typedef enum {
 } menu_event_type;
 
 void menu_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _MAIN_MENU_
 

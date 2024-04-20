@@ -206,7 +206,7 @@ static void inform_about_job_done(void) {
 }
 
 static void on_menu_request(void* _request) {
-    error_status_t result   = ERROR_LAST;
+    error_status_t result   = ERROR_ANY;
     heater_request* request = _request;
 
     if (!is_request_priority_higher_than_proccesed(COMPONENT_MENU_PRIORITY))
@@ -232,7 +232,7 @@ static void on_menu_request(void* _request) {
             break;
 
         case HEATING_REQUEST_CANCEL:
-            result = heat_controller_cancel_action();
+            heat_controller_cancel_action();
             break;
 
         default:

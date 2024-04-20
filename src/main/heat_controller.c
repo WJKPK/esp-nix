@@ -45,7 +45,7 @@ typedef struct {
 
 typedef struct {
     seconds                duration;
-    temperature_stage*     stages;
+    temperature_stage    * stages;
     unsigned               actual_stage;
     unsigned               stage_count;
     heat_completion_marker completed_routine;
@@ -56,33 +56,11 @@ static struct {
     uint16_t           last_readout;
 } ctx;
 
+static void execute_heating_mode_periodic(void* heating_mode);
+
 unsigned heat_controller_get_temperature(void) {
     return ctx.last_readout;
 }
-
-static temperature_stage jedec[] = { {
-                                         .time ={
-                                             .from = 0,
-                                             .to   = 100,
-                                         },
-                                         .temperature = 100
-                                     },{
-                                         .time ={
-                                             .from = 100,
-                                             .to   = 140,
-                                         },
-                                         .temperature = 250
-                                     },{
-                                         .time ={
-                                             .from = 140,
-                                             .to   = 230
-                                         },
-                                         .temperature = 30
-                                     } };
-
-static heating_mode_descriptor heating_mode[MULTISTAGE_HEATING_LAST] = {
-    { .stages = jedec, .stage_count = COUNT_OF(jedec) }
-};
 
 error_status_t setup_toggler_pin(void) {
     const unsigned toggler_pin         = GPIO_NUM_8;
@@ -105,8 +83,25 @@ static error_status_t set_toggler_level(bool on) {
     });
 }
 
-static void turn_off_heater(void* args) {
+static void handle_cancel_action(void) {
+    (void)timer_unregister_callback(heat_controller_tick, execute_heating_mode_periodic);
+
+    ctx.state = HEATING_STATE_IDLE;
     set_toggler_level(false);
+
+    log_info("Cancel heat controller action finalized with status");
+}
+
+static void stop_ongoing_request(heating_mode_descriptor* heating_mode) {
+    heating_mode->completed_routine();
+    heating_mode->completed_routine = NULL;
+    heating_mode->actual_stage      = 0;
+    ctx.state = HEATING_STATE_IDLE;
+}
+
+static void handle_cancel_action_with_callback(heating_mode_descriptor* heating_mode) {
+    handle_cancel_action();
+    stop_ongoing_request(heating_mode);
 }
 
 static bool is_time_in_range(temperature_stage stage, seconds time) {
@@ -121,8 +116,9 @@ static void set_actual_stage(heating_mode_descriptor* heating_mode) {
     bool is_found = false;
 
     for (i = heating_mode->actual_stage; i < heating_mode->stage_count; i++) {
-        is_time_in_range(heating_mode->stages[i], heating_mode->duration) ? ({ is_found = true;
-                                                                               break;
+        is_time_in_range(heating_mode->stages[i], heating_mode->duration) ? ({
+            is_found = true;
+            break;
         }) : ({ });
     }
     heating_mode->actual_stage = i;
@@ -134,6 +130,10 @@ celcius get_actual_setpoint(heating_mode_descriptor* heating_mode) {
     return heating_mode->stages[heating_mode->actual_stage].temperature;
 }
 
+static void turn_off_heater(void* args) {
+    set_toggler_level(false);
+}
+
 static error_status_t execute_heating_mode(heating_mode_descriptor* heating_mode, miliseconds actual_period_length) {
     if (ERROR_ANY != spi_read(SpiDeviceThermocoupleAfe, &ctx.last_readout, sizeof(ctx.last_readout))) {
         set_toggler_level(false);
@@ -141,10 +141,7 @@ static error_status_t execute_heating_mode(heating_mode_descriptor* heating_mode
     }
     set_actual_stage(heating_mode);
     if (heating_mode->actual_stage == invalid_stage_index) {
-        heating_mode->completed_routine();
-        heating_mode->completed_routine = NULL;
-        heating_mode->actual_stage      = 0;
-        ctx.state = HEATING_STATE_IDLE;
+        stop_ongoing_request(heating_mode);
         return ERROR_EXECUTION_STOPPED;
     }
     float percent = get_heating_power_percent((float) ctx.last_readout, get_actual_setpoint(heating_mode));
@@ -163,6 +160,11 @@ static void execute_heating_mode_periodic(void* heating_mode) {
     if (ctx.state == HEATING_STATE_IDLE)
         return;
 
+    if (ctx.state == HEATING_STATE_CANCELLED) {
+        handle_cancel_action_with_callback(heating_mode);
+        return;
+    }
+
     miliseconds time = periodic_get_period(heat_controller_tick);
     if (ERROR_ANY != execute_heating_mode(heating_mode, time))
         timer_unregister_callback(heat_controller_tick, execute_heating_mode_periodic);
@@ -173,10 +175,41 @@ error_status_t heat_controller_start_multistage_heating_mode(multistage_heating_
     if (type >= MULTISTAGE_HEATING_LAST)
         return ERROR_INVALID_INPUT_PARAMETER;
 
+    if (ctx.state == HEATING_STATE_CANCELLED) {
+        handle_cancel_action();
+    }
+
     if (ctx.state != HEATING_STATE_IDLE)
         return ERROR_INVALID_STATE;
 
-    heating_mode_descriptor* selected_heating_mode = &heating_mode[type];
+    static temperature_stage jedec[] = {
+        {
+            .time ={
+                .from = 0,
+                .to   = 100,
+            },
+            .temperature = 100
+        },{
+            .time ={
+                .from = 100,
+                .to   = 140,
+            },
+            .temperature = 250
+        },{
+            .time ={
+                .from = 140,
+                .to   = 230
+            },
+            .temperature = 30
+        }
+    };
+
+    static heating_mode_descriptor multistage_heating_modes[MULTISTAGE_HEATING_LAST] = {
+        { .stages = jedec, .stage_count = COUNT_OF(jedec) }
+    };
+
+
+    heating_mode_descriptor* selected_heating_mode = &multistage_heating_modes[type];
     selected_heating_mode->duration = 0;
     selected_heating_mode->completed_routine = completion_routine;
     ctx.state = HEATING_STATE_MULTI_STAGE;
@@ -191,6 +224,10 @@ error_status_t heat_controller_start_multistage_heating_mode(multistage_heating_
 
 error_status_t heat_controller_start_constant_heating(celcius temperature, unsigned duration,
   heat_completion_marker completion_routine) {
+    if (ctx.state == HEATING_STATE_CANCELLED) {
+        handle_cancel_action();
+    }
+
     if (ctx.state != HEATING_STATE_IDLE)
         return ERROR_INVALID_STATE;
 
@@ -217,15 +254,9 @@ error_status_t heat_controller_start_constant_heating(celcius temperature, unsig
     return timer_register_callback(heat_controller_tick, execute_heating_mode_periodic, &constant_heating_mode);
 }
 
-error_status_t heat_controller_cancel_action(void) {
-    error_status_t status = timer_unregister_callback(heat_controller_tick, execute_heating_mode_periodic);
-
-    if (status != ERROR_ANY)
-        return status;
-
-    ctx.state = HEATING_STATE_IDLE;
-    set_toggler_level(false);
-    return status;
+void heat_controller_cancel_action(void) {
+    log_info("Requestet to cancel heat controller action");
+    ctx.state = HEATING_STATE_CANCELLED;
 }
 
 error_status_t heat_controller_init(void) {

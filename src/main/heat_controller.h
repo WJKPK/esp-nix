@@ -29,6 +29,7 @@ typedef enum {
     HEATING_STATE_IDLE,
     HEATING_STATE_CONSTANT,
     HEATING_STATE_MULTI_STAGE,
+    HEATING_STATE_CANCELLED,
     HEATING_STATE_LAST
 } heating_mode_state;
 
@@ -45,6 +46,6 @@ error_status_t heat_controller_start_constant_heating(celcius temperature, unsig
   heat_completion_marker completion_routine);
 error_status_t heat_controller_init(void);
 unsigned heat_controller_get_temperature(void);
-error_status_t heat_controller_cancel_action(void);
+void heat_controller_cancel_action(void);
 
 #endif // ifndef _MAIN_HEAT_CONTROLLER_

@@ -33,5 +33,6 @@ typedef struct {
 
 #include "lcd.h"
 #include "encoder.h"
+#include "heat_controller_interface.h"
 
 #endif  // __SCHEDULER_CUSTOM_TYPES__
