@@ -1,5 +1,5 @@
 {
-  description = "ESP32C3 development";
+  description = "ESP32C3 Thermostat";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
@@ -10,15 +10,19 @@
 
   outputs = { self, nixpkgs, flake-utils, nixpkgs-esp-dev, cppumockgen }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
-    idf-revision = "79b1379662b547f6eb0e5fed33df70587b03d99c";
+
+    get-drv-by-name = name: derivations: builtins.head (builtins.filter (d: d.name == name) derivations);
+
     pkgs = import nixpkgs { inherit system; overlays = [(import "${nixpkgs-esp-dev}/overlay.nix")];};
     mockgen = cppumockgen.packages.${system}.default;
+
+    idf-revision = "79b1379662b547f6eb0e5fed33df70587b03d99c";
     esp-idf = with pkgs; esp-idf-esp32c3.override {
       rev = idf-revision; sha256 = "sha256-JNJ4wfkS6lEMNeaMf06ORzNPgHQ59s96zMlm9/lSS9A=";
     };
-    get-drv-by-name = name: derivations: builtins.head (builtins.filter (d: d.name == name) derivations);
     get-compiler-path = get-drv-by-name "riscv32-esp-elf-esp-idf-${idf-revision}";
     compiler-path = get-compiler-path esp-idf.propagatedBuildInputs;
+
     in {
       devShell = pkgs.callPackage ./shell.nix { inherit esp-idf mockgen compiler-path; };
 
