@@ -3,18 +3,18 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixpkgs-unstable";
+    nixpkgs-old.url = "nixpkgs/release-21.05";
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs-esp-dev.url = "github:mirrexagon/nixpkgs-esp-dev";
-    cppumockgen.url = "./tests/mockgen";
   };
 
-  outputs = { self, nixpkgs, flake-utils, nixpkgs-esp-dev, cppumockgen }:
+  outputs = { self, nixpkgs, nixpkgs-old, flake-utils, nixpkgs-esp-dev }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system: let
 
     get-drv-by-name = name: derivations: builtins.head (builtins.filter (d: d.name == name) derivations);
 
     pkgs = import nixpkgs { inherit system; overlays = [(import "${nixpkgs-esp-dev}/overlay.nix")];};
-    mockgen = cppumockgen.packages.${system}.default;
+    pkgs-old = import nixpkgs-old { inherit system; };
 
     idf-revision = "79b1379662b547f6eb0e5fed33df70587b03d99c";
     esp-idf = with pkgs; esp-idf-esp32c3.override {
@@ -24,9 +24,9 @@
     compiler-path = get-compiler-path esp-idf.propagatedBuildInputs;
 
     in {
-      devShell = pkgs.callPackage ./shell.nix { inherit esp-idf mockgen compiler-path; };
+      devShell = pkgs.callPackage ./shell.nix { inherit pkgs-old esp-idf compiler-path; };
 
-      packages.test = pkgs.callPackage ./tests.nix { inherit mockgen compiler-path; };
+      packages.test = pkgs.callPackage ./tests.nix { inherit pkgs-old compiler-path; };
 
       defaultPackage = pkgs.callPackage ./build.nix { inherit esp-idf; };
     });

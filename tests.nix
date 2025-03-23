@@ -1,5 +1,6 @@
-{ pkgs, mockgen, compiler-path, ...}:
+{ pkgs, pkgs-old, compiler-path, ...}:
 let
+  mockgen = import ./tests/cppumockgen.nix { inherit pkgs pkgs-old; };
   getFetchContentFlags = file:
     let
       inherit (builtins) head elemAt match;

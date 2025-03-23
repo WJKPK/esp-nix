@@ -1,4 +1,7 @@
-{pkgs, esp-idf, mockgen, compiler-path, ...}:
+{pkgs, pkgs-old, esp-idf, compiler-path, ...}:
+let
+    mockgen = import ./tests/cppumockgen.nix { inherit pkgs pkgs-old; };
+in
 with pkgs;
   mkShell {
     buildInputs = [
